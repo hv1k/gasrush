@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Reports</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Reports</h1>
+                <p class="text-secondary">Generate and view reports</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2 class="card-title">Generate Report</h2></div>
+                <div style="padding:20px">
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Report Type</label>
+                            <select class="form-select" id="fType">
+                                <option>Fuel Delivery Summary</option>
+                                <option>Invoice Report</option>
+                                <option>Equipment Usage</option>
+                                <option>Job Completion</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-input" id="fStart">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-input" id="fEnd">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="generate()" style="margin-top:12px">📊 Generate Report</button>
+                </div>
+            </div>
+
+            <div id="reportResults" style="margin-top:20px"></div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
+            if (!user) return;
+            const today = new Date();
+            const month = new Date(today); month.setMonth(month.getMonth() - 1);
+            document.getElementById('fEnd').value = today.toISOString().slice(0,10);
+            document.getElementById('fStart').value = month.toISOString().slice(0,10);
+        })();
+
+        async function generate() {
+            const start = document.getElementById('fStart').value;
+            const end = document.getElementById('fEnd').value;
+            const type = document.getElementById('fType').value;
+            const out = document.getElementById('reportResults');
+            out.innerHTML = '<div class="card"><div style="padding:40px;text-align:center">Generating…</div></div>';
+
+            let rows = [];
+            try {
+                let q = GasRush.db().from('jobs').select('*');
+                if (start) q = q.gte('created_at', start);
+                if (end) q = q.lte('created_at', end + 'T23:59:59');
+                const { data, error } = await q.order('created_at', { ascending: false });
+                if (error) throw error;
+                rows = data || [];
+            } catch(e) { console.warn('Query failed:', e.message); }
+
+            const total = rows.length;
+            const completed = rows.filter(r => r.status === 'completed').length;
+            const gallons = rows.reduce((s, r) => s + (parseFloat(r.gallons||r.quantity||0)), 0);
+
+            let h = `<div class="card"><div class="card-header"><h2 class="card-title">${esc(type)}</h2></div><div style="padding:20px">`;
+            h += `<div class="stats-grid"><div class="stat-card"><div class="stat-label">Total Jobs</div><div class="stat-value">${total}</div></div>`;
+            h += `<div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value">${completed}</div></div>`;
+            h += `<div class="stat-card"><div class="stat-label">Total Gallons</div><div class="stat-value">${gallons.toLocaleString()}</div></div>`;
+            h += `<div class="stat-card"><div class="stat-label">Completion Rate</div><div class="stat-value">${total ? Math.round(completed/total*100) : 0}%</div></div></div>`;
+
+            if (rows.length) {
+                h += '<div class="table-wrapper" style="margin-top:20px"><table><thead><tr><th>Date</th><th>Job</th><th>Status</th><th>Gallons</th></tr></thead><tbody>';
+                for (const r of rows.slice(0, 50)) {
+                    const d = r.created_at ? new Date(r.created_at).toLocaleDateString() : '—';
+                    const bc = r.status === 'completed' ? 'badge-success' : r.status === 'cancelled' ? 'badge-danger' : 'badge-warning';
+                    h += `<tr><td>${d}</td><td>${esc(r.name||r.title||r.id||'—')}</td><td><span class="badge ${bc}">${r.status||'—'}</span></td><td>${r.gallons||r.quantity||'—'}</td></tr>`;
+                }
+                h += '</tbody></table></div>';
+            } else {
+                h += '<div class="empty-state" style="margin-top:20px"><div class="empty-state-icon">📊</div><h3>No data for this period</h3></div>';
+            }
+            h += '</div></div>';
+            out.innerHTML = h;
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

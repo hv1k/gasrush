@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — System Health</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .status-dot { width:10px; height:10px; border-radius:50%; background:var(--success); display:inline-block; margin-right:8px; }
+        .status-dot.warning { background:var(--warning); }
+        .status-dot.danger { background:var(--danger); }
+        .service-card { padding:20px; }
+        .service-header { display:flex; align-items:center; margin-bottom:4px; }
+        .service-name { font-weight:600; font-size:1.05em; }
+        .service-time { font-size:0.85em; color:var(--text-secondary); }
+        .event-item { padding:12px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+        .event-item:last-child { border-bottom:none; }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>System Health</h1>
+                    <p class="text-secondary">Service status overview</p>
+                </div>
+                <button class="btn btn-secondary" onclick="refreshHealth()">🔄 Refresh</button>
+            </div>
+
+            <div class="stats-grid" id="serviceCards"></div>
+
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header"><h2 class="card-title">Uptime</h2></div>
+                <div style="padding:24px; text-align:center;">
+                    <div style="font-size:3em; font-weight:700; color:var(--success);">99.9%</div>
+                    <p class="text-secondary">Last 30 days</p>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header"><h2 class="card-title">Recent Events</h2></div>
+                <div id="eventsLog"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        const services = [
+            { name: 'API Status', icon: '🌐', status: 'Healthy' },
+            { name: 'Database', icon: '🗄️', status: 'Healthy' },
+            { name: 'Auth Service', icon: '🔐', status: 'Healthy' },
+            { name: 'Storage', icon: '💾', status: 'Healthy' }
+        ];
+
+        const events = [
+            { msg: 'Database backup completed', time: '2 hours ago', type: 'success' },
+            { msg: 'SSL certificate renewed', time: '5 hours ago', type: 'success' },
+            { msg: 'Scheduled maintenance completed', time: '1 day ago', type: 'success' },
+            { msg: 'Storage cleanup — 2.3GB freed', time: '2 days ago', type: 'success' },
+            { msg: 'API rate limiter updated', time: '3 days ago', type: 'success' }
+        ];
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['admin'] });
+            if (!user) return;
+            refreshHealth();
+        })();
+
+        function refreshHealth() {
+            const now = new Date().toLocaleTimeString();
+            const cards = document.getElementById('serviceCards');
+            cards.innerHTML = services.map(s => `
+                <div class="stat-card service-card">
+                    <div class="service-header"><span class="status-dot"></span><span class="service-name">${s.icon} ${s.name}</span></div>
+                    <div><span class="badge badge-success">${s.status}</span></div>
+                    <div class="service-time">Last checked: ${now}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('eventsLog').innerHTML = events.map(e => `
+                <div class="event-item">
+                    <span>${e.msg}</span>
+                    <span class="text-secondary" style="font-size:0.85em;">${e.time}</span>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

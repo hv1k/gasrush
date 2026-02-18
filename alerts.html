@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Alerts</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .alert-toggle { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); }
+        .alert-toggle:last-child { border-bottom:none; }
+        .alert-label { font-weight:600; }
+        .alert-desc { font-size:0.85em; color:var(--text-secondary); }
+        .toggle-switch { position:relative; width:50px; height:26px; cursor:pointer; flex-shrink:0; }
+        .toggle-switch input { opacity:0; width:0; height:0; }
+        .toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:13px; transition:.3s; }
+        .toggle-slider::before { content:''; position:absolute; height:20px; width:20px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; }
+        .toggle-switch input:checked + .toggle-slider { background:var(--success); }
+        .toggle-switch input:checked + .toggle-slider::before { transform:translateX(24px); }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Alerts</h1>
+                    <p class="text-secondary">Notification preferences</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2 class="card-title">Alert Settings</h2></div>
+                <div id="alertsContainer"></div>
+                <div style="padding:16px 20px; border-top:1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="saveAlerts()">💾 Save Preferences</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        const alertTypes = [
+            { key: 'new_job', label: 'New Job Assigned', desc: 'Get notified when a new job is assigned to you or your team' },
+            { key: 'job_completed', label: 'Job Completed', desc: 'Notification when a job is marked as completed' },
+            { key: 'invoice_created', label: 'Invoice Created', desc: 'Alert when a new invoice is generated' },
+            { key: 'equipment_alert', label: 'Equipment Alert', desc: 'Warnings about equipment status or maintenance needs' },
+            { key: 'daily_summary', label: 'Daily Summary', desc: 'Receive a daily summary of all activity' }
+        ];
+
+        let prefs = {};
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
+            if (!user) return;
+            try { prefs = JSON.parse(localStorage.getItem('gr_alerts') || '{}'); } catch(e) { prefs = {}; }
+            render();
+        })();
+
+        function render() {
+            document.getElementById('alertsContainer').innerHTML = alertTypes.map(a => {
+                const on = prefs[a.key] !== false;
+                return `<div class="alert-toggle">
+                    <div><div class="alert-label">${a.label}</div><div class="alert-desc">${a.desc}</div></div>
+                    <label class="toggle-switch"><input type="checkbox" data-key="${a.key}" ${on ? 'checked' : ''}><span class="toggle-slider"></span></label>
+                </div>`;
+            }).join('');
+        }
+
+        function saveAlerts() {
+            document.querySelectorAll('.toggle-switch input').forEach(el => {
+                prefs[el.dataset.key] = el.checked;
+            });
+            localStorage.setItem('gr_alerts', JSON.stringify(prefs));
+            if (typeof GasRush.toast === 'function') GasRush.toast('Preferences saved', 'success');
+        }
+    </script>
+</body>
+</html>

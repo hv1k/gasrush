@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Bulk Import</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .drop-zone { border:2px dashed var(--color-border,#444); border-radius:12px; padding:48px; text-align:center; cursor:pointer; transition:border-color .2s; }
+        .drop-zone:hover, .drop-zone.dragover { border-color:var(--color-primary); }
+        .step-indicator { display:flex; gap:4px; margin-bottom:24px; }
+        .step { flex:1; text-align:center; padding:10px; border-radius:8px; background:var(--color-card-bg,#2a2a3e); font-size:13px; opacity:0.5; }
+        .step.active { opacity:1; background:var(--color-primary); color:#fff; }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Bulk Import</h1>
+                <p class="text-secondary">Import data via CSV files</p>
+            </div>
+
+            <div class="step-indicator">
+                <div class="step active" id="step1">1. Upload</div>
+                <div class="step" id="step2">2. Map Fields</div>
+                <div class="step" id="step3">3. Review</div>
+                <div class="step" id="step4">4. Import</div>
+            </div>
+
+            <div class="card">
+                <div style="padding:24px">
+                    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+                         ondragover="event.preventDefault();this.classList.add('dragover')"
+                         ondragleave="this.classList.remove('dragover')"
+                         ondrop="event.preventDefault();this.classList.remove('dragover');handleFile(event.dataTransfer.files[0])">
+                        <div style="font-size:48px;margin-bottom:12px">📤</div>
+                        <h3>Drop CSV file here or click to browse</h3>
+                        <p class="text-secondary">Supports .csv files up to 10MB</p>
+                        <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleFile(this.files[0])">
+                    </div>
+
+                    <div style="margin-top:20px">
+                        <p class="text-secondary" style="margin-bottom:8px">Download templates:</p>
+                        <div class="flex gap-2">
+                            <button class="btn btn-secondary" onclick="downloadTemplate('Jobs')">📋 Jobs</button>
+                            <button class="btn btn-secondary" onclick="downloadTemplate('Equipment')">🔧 Equipment</button>
+                            <button class="btn btn-secondary" onclick="downloadTemplate('Contacts')">👤 Contacts</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px">
+                <div class="card-header"><h2 class="card-title">Import History</h2></div>
+                <div class="table-wrapper">
+                    <table><thead><tr><th>Date</th><th>Type</th><th>Rows</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <tr><td>2025-02-15</td><td>Jobs</td><td>47</td><td><span class="badge badge-success">Completed</span></td></tr>
+                        <tr><td>2025-02-10</td><td>Equipment</td><td>23</td><td><span class="badge badge-success">Completed</span></td></tr>
+                        <tr><td>2025-02-08</td><td>Contacts</td><td>12</td><td><span class="badge badge-warning">Partial</span></td></tr>
+                    </tbody></table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'admin'] });
+            if (!user) return;
+        })();
+
+        function handleFile(file) {
+            if (!file) return;
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            alert('File "' + file.name + '" uploaded. Field mapping UI coming soon.');
+        }
+
+        function downloadTemplate(type) {
+            const templates = {
+                Jobs: 'name,location,gallons,fuel_type,date,notes',
+                Equipment: 'name,type,location,status,last_service_date',
+                Contacts: 'name,email,phone,company,role',
+            };
+            const blob = new Blob([templates[type]], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = type.toLowerCase() + '_template.csv';
+            a.click();
+        }
+    </script>
+</body>
+</html>

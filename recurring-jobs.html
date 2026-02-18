@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Recurring Jobs</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Recurring Jobs</h1>
+                    <p class="text-secondary">Manage scheduled and repeating jobs</p>
+                </div>
+                <button class="btn btn-primary" onclick="openModal()">+ Create Recurring Job</button>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2 class="card-title">Scheduled Jobs</h2></div>
+                <div id="tableContainer"></div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header flex justify-between items-center">
+                <h2 class="modal-title">Create Recurring Job</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form onsubmit="saveJob(event)">
+                <div class="form-group"><label class="form-label">Job Name</label><input class="form-input" id="fName" required></div>
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Frequency</label><select class="form-select" id="fFreq"><option>Daily</option><option>Weekly</option><option>Monthly</option></select></div>
+                    <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="fLoc"></div>
+                </div>
+                <div style="margin-top:16px" class="flex justify-between">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        let jobs = [
+            { id: 1, name: 'Weekly Diesel Refill — Site A', frequency: 'Weekly', next_run: '2026-02-23', location: 'Site A — Downtown', enabled: true },
+            { id: 2, name: 'Monthly Tank Inspection', frequency: 'Monthly', next_run: '2026-03-01', location: 'Main Depot', enabled: true },
+            { id: 3, name: 'Daily Generator Top-Off', frequency: 'Daily', next_run: '2026-02-19', location: 'Northside Plant', enabled: false },
+        ];
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'admin'] });
+            if (!user) return;
+            render();
+        })();
+
+        function render() {
+            const c = document.getElementById('tableContainer');
+            let h = '<div class="table-wrapper"><table><thead><tr><th>Job Name</th><th>Frequency</th><th>Next Run</th><th>Location</th><th>Status</th><th>Enabled</th></tr></thead><tbody>';
+            for (const j of jobs) {
+                const bc = j.enabled ? 'badge-success' : 'badge-danger';
+                h += `<tr><td><strong>${esc(j.name)}</strong></td><td>${j.frequency}</td><td>${j.next_run}</td><td>${esc(j.location)}</td>
+                    <td><span class="badge ${bc}">${j.enabled ? 'Active' : 'Disabled'}</span></td>
+                    <td><label style="cursor:pointer"><input type="checkbox" ${j.enabled?'checked':''} onchange="toggle(${j.id})"> </label></td></tr>`;
+            }
+            h += '</tbody></table></div>';
+            c.innerHTML = h;
+        }
+
+        function toggle(id) { const j = jobs.find(j=>j.id===id); if(j) j.enabled=!j.enabled; render(); }
+        function openModal() { document.getElementById('modalOverlay').style.display='flex'; }
+        function closeModal() { document.getElementById('modalOverlay').style.display='none'; }
+
+        function saveJob(e) {
+            e.preventDefault();
+            const next = new Date(); next.setDate(next.getDate()+1);
+            jobs.push({ id: Date.now(), name: document.getElementById('fName').value, frequency: document.getElementById('fFreq').value, next_run: next.toISOString().slice(0,10), location: document.getElementById('fLoc').value, enabled: true });
+            closeModal(); render();
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

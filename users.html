@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Users</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Users</h1>
+                    <p class="text-secondary">Manage platform users</p>
+                </div>
+                <button class="btn btn-primary" onclick="openModal()">+ Add User</button>
+            </div>
+
+            <div class="stats-grid" id="userStats">
+                <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="statTotal">—</div></div>
+                <div class="stat-card"><div class="stat-label">Admins</div><div class="stat-value" id="statAdmin">—</div></div>
+                <div class="stat-card"><div class="stat-label">Rental Companies</div><div class="stat-value" id="statRental">—</div></div>
+                <div class="stat-card"><div class="stat-label">Vendors</div><div class="stat-value" id="statVendor">—</div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header flex justify-between items-center" style="gap:12px;flex-wrap:wrap;">
+                    <h2 class="card-title">All Users</h2>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="searchInput" class="form-input" placeholder="Search..." oninput="filterUsers()" style="width:200px;">
+                        <select id="roleFilter" class="form-input" onchange="filterUsers()" style="width:150px;">
+                            <option value="">All Roles</option>
+                            <option value="admin">Admin</option>
+                            <option value="rental">Rental</option>
+                            <option value="vendor">Vendor</option>
+                            <option value="fieldworker">Field Worker</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="usersTable">
+                    <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="userModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header"><h2 class="modal-title">Add User</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Name</label><input type="text" id="mName" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Email</label><input type="email" id="mEmail" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Role</label>
+                    <select id="mRole" class="form-input">
+                        <option value="rental">Rental</option>
+                        <option value="vendor">Vendor</option>
+                        <option value="fieldworker">Field Worker</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group"><label class="form-label">Company</label><input type="text" id="mCompany" class="form-input"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addUser()">Add User</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        let allUsers = [];
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['admin'] });
+            if (!user) return;
+            await loadUsers();
+        })();
+
+        async function loadUsers() {
+            try {
+                const { data, error } = await GasRush.db().from('users').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                allUsers = data || [];
+            } catch(e) {
+                console.error(e);
+                allUsers = [];
+            }
+            updateStats();
+            filterUsers();
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = allUsers.length;
+            document.getElementById('statAdmin').textContent = allUsers.filter(u => u.role === 'admin').length;
+            document.getElementById('statRental').textContent = allUsers.filter(u => u.role === 'rental').length;
+            document.getElementById('statVendor').textContent = allUsers.filter(u => u.role === 'vendor').length;
+        }
+
+        function filterUsers() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const role = document.getElementById('roleFilter').value;
+            let filtered = allUsers;
+            if (q) filtered = filtered.filter(u => (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+            if (role) filtered = filtered.filter(u => u.role === role);
+            renderTable(filtered);
+        }
+
+        const roleBadge = { admin:'badge-danger', rental:'badge-primary', vendor:'badge-warning', fieldworker:'badge-success' };
+
+        function renderTable(users) {
+            const c = document.getElementById('usersTable');
+            if (!users.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><h3>No users found</h3></div>'; return; }
+            let h = '<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Company</th><th>Status</th><th>Last Login</th></tr></thead><tbody>';
+            for (const u of users) {
+                const badge = roleBadge[u.role] || 'badge-primary';
+                const status = u.status || 'active';
+                const sb = status === 'active' ? 'badge-success' : 'badge-secondary';
+                const login = u.last_login ? new Date(u.last_login).toLocaleDateString() : '—';
+                h += `<tr><td><strong>${esc(u.name||'—')}</strong></td><td>${esc(u.email||'—')}</td><td><span class="badge ${badge}">${u.role||'—'}</span></td><td>${esc(u.company||'—')}</td><td><span class="badge ${sb}">${status}</span></td><td>${login}</td></tr>`;
+            }
+            h += '</tbody></table></div>';
+            c.innerHTML = h;
+        }
+
+        function openModal() { document.getElementById('userModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('userModal').style.display = 'none'; }
+
+        async function addUser() {
+            const name = document.getElementById('mName').value.trim();
+            const email = document.getElementById('mEmail').value.trim();
+            const role = document.getElementById('mRole').value;
+            const company = document.getElementById('mCompany').value.trim();
+            if (!name || !email) { if (typeof GasRush.toast === 'function') GasRush.toast('Name and email required', 'error'); return; }
+            try {
+                const { error } = await GasRush.db().from('users').insert({ name, email, role, company, status: 'active' });
+                if (error) throw error;
+                closeModal();
+                if (typeof GasRush.toast === 'function') GasRush.toast('User added', 'success');
+                await loadUsers();
+            } catch(e) {
+                console.error(e);
+                if (typeof GasRush.toast === 'function') GasRush.toast('Failed to add user', 'error');
+            }
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Routes</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .stop-card { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; }
+        .stop-card:last-child { border-bottom:none; }
+        .stop-num { width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; }
+        .stop-info { flex:1; }
+        .stop-name { font-weight:600; }
+        .stop-addr { font-size:0.85em; color:var(--text-secondary); }
+        .stop-time { font-size:0.85em; color:var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Routes</h1>
+                    <p class="text-secondary">Today's route plan</p>
+                </div>
+                <button class="btn btn-primary" onclick="optimizeRoute()">🗺️ Optimize Route</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label">Total Stops</div><div class="stat-value">4</div></div>
+                <div class="stat-card"><div class="stat-label">Est. Distance</div><div class="stat-value">47 mi</div></div>
+                <div class="stat-card"><div class="stat-label">Est. Time</div><div class="stat-value">2h 15m</div></div>
+            </div>
+
+            <div class="card" style="margin-top:24px;">
+                <div class="card-header"><h2 class="card-title">Today's Stops</h2></div>
+                <div id="stopsContainer"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        const stops = [
+            { name: 'Downtown Generator Refuel', addr: '123 Main St, Los Angeles, CA', time: '9:00 AM', status: 'completed' },
+            { name: 'Westside Construction Site', addr: '456 Ocean Ave, Santa Monica, CA', time: '10:30 AM', status: 'in-progress' },
+            { name: 'Harbor Fuel Drop-off', addr: '789 Harbor Blvd, Long Beach, CA', time: '12:00 PM', status: 'upcoming' },
+            { name: 'Industrial Park Delivery', addr: '321 Commerce Dr, Carson, CA', time: '2:00 PM', status: 'upcoming' }
+        ];
+
+        const statusBadge = { completed: 'badge-success', 'in-progress': 'badge-primary', upcoming: 'badge-secondary' };
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['vendor', 'fieldworker', 'admin'] });
+            if (!user) return;
+            renderStops();
+        })();
+
+        function renderStops() {
+            document.getElementById('stopsContainer').innerHTML = stops.map((s, i) => `
+                <div class="stop-card">
+                    <div class="stop-num">${i + 1}</div>
+                    <div class="stop-info">
+                        <div class="stop-name">${esc(s.name)}</div>
+                        <div class="stop-addr">📍 ${esc(s.addr)}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="stop-time">🕐 ${s.time}</div>
+                        <span class="badge ${statusBadge[s.status]}">${s.status}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function optimizeRoute() {
+            if (typeof GasRush.toast === 'function') GasRush.toast('Route optimized!', 'success');
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

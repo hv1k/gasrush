@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Data Export</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Data Export</h1>
+                    <p class="text-secondary">Export data to CSV or Excel</p>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:24px;">
+                <div class="card-header"><h2 class="card-title">Export Settings</h2></div>
+                <div style="padding:24px;">
+                    <div class="form-group">
+                        <label class="form-label">Data Type</label>
+                        <select id="dataType" class="form-input">
+                            <option value="jobs">Jobs</option>
+                            <option value="invoices">Invoices</option>
+                            <option value="equipment">Equipment</option>
+                            <option value="users">Users</option>
+                            <option value="deliveries">Deliveries</option>
+                        </select>
+                    </div>
+                    <div class="grid-2" style="gap:16px;">
+                        <div class="form-group">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="startDate" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="endDate" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Format</label>
+                        <select id="exportFormat" class="form-input">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="runExport()" id="exportBtn">📥 Export</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2 class="card-title">Export History</h2></div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Date</th><th>Type</th><th>Records</th><th>Format</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>Feb 15, 2026</td><td>Jobs</td><td>142</td><td>CSV</td><td><span class="badge badge-success">Complete</span></td></tr>
+                            <tr><td>Feb 10, 2026</td><td>Invoices</td><td>87</td><td>Excel</td><td><span class="badge badge-success">Complete</span></td></tr>
+                            <tr><td>Feb 1, 2026</td><td>Users</td><td>34</td><td>CSV</td><td><span class="badge badge-success">Complete</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['admin', 'rental'] });
+            if (!user) return;
+            const today = new Date().toISOString().split('T')[0];
+            const month = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
+            document.getElementById('endDate').value = today;
+            document.getElementById('startDate').value = month;
+        })();
+
+        async function runExport() {
+            const btn = document.getElementById('exportBtn');
+            const table = document.getElementById('dataType').value;
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const fmt = document.getElementById('exportFormat').value;
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Exporting...';
+
+            try {
+                let query = GasRush.db().from(table).select('*');
+                if (start) query = query.gte('created_at', start);
+                if (end) query = query.lte('created_at', end + 'T23:59:59');
+                query = query.order('created_at', { ascending: false });
+
+                const { data, error } = await query;
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    if (typeof GasRush.toast === 'function') GasRush.toast('No data found for selected range', 'warning');
+                    return;
+                }
+
+                const csv = toCsv(data);
+                downloadFile(csv, `${table}_export_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+                if (typeof GasRush.toast === 'function') GasRush.toast(`Exported ${data.length} records`, 'success');
+            } catch(e) {
+                console.error(e);
+                if (typeof GasRush.toast === 'function') GasRush.toast('Export failed: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📥 Export';
+            }
+        }
+
+        function toCsv(data) {
+            if (!data.length) return '';
+            const headers = Object.keys(data[0]);
+            const rows = data.map(r => headers.map(h => {
+                let v = r[h] == null ? '' : String(r[h]);
+                if (v.includes(',') || v.includes('"') || v.includes('\n')) v = '"' + v.replace(/"/g, '""') + '"';
+                return v;
+            }).join(','));
+            return [headers.join(','), ...rows].join('\n');
+        }
+
+        function downloadFile(content, filename, mime) {
+            const blob = new Blob([content], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

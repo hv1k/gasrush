@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Daily Log</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Daily Log</h1>
+                    <p class="text-secondary">Track daily deliveries and activities</p>
+                </div>
+                <div class="flex gap-2">
+                    <input type="date" class="form-input" id="fDate" onchange="loadData()" style="width:auto">
+                    <button class="btn btn-primary" onclick="openModal()">+ Add Entry</button>
+                </div>
+            </div>
+
+            <div id="logContainer">
+                <div class="empty-state"><div class="empty-state-icon">📋</div><h3>Loading...</h3></div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header flex justify-between items-center">
+                <h2 class="modal-title">Log Delivery</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form onsubmit="saveEntry(event)">
+                <div class="form-group"><label class="form-label">Job Name</label><input class="form-input" id="fJob" required></div>
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="fLoc"></div>
+                    <div class="form-group"><label class="form-label">Gallons</label><input type="number" class="form-input" id="fGal" step="0.1"></div>
+                </div>
+                <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="fNotes" rows="3"></textarea></div>
+                <div style="margin-top:16px" class="flex justify-between">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['fieldworker', 'vendor', 'admin'] });
+            if (!user) return;
+            document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
+            await loadData();
+        })();
+
+        async function loadData() {
+            const day = document.getElementById('fDate').value;
+            let rows = [];
+            try {
+                const { data, error } = await GasRush.db().from('deliveries').select('*')
+                    .gte('created_at', day + 'T00:00:00')
+                    .lte('created_at', day + 'T23:59:59')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                rows = data || [];
+            } catch(e) { console.warn('Deliveries table not available:', e.message); }
+            render(rows);
+        }
+
+        function render(rows) {
+            const c = document.getElementById('logContainer');
+            if (!rows.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No deliveries logged</h3><p>Tap "Add Entry" to log a delivery for this day.</p></div>'; return; }
+            let h = '';
+            for (const r of rows) {
+                const time = r.created_at ? new Date(r.created_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '';
+                h += `<div class="card" style="margin-bottom:12px"><div style="padding:16px">
+                    <div class="flex justify-between items-center"><strong>${esc(r.job_name||r.name||'Delivery')}</strong><span class="text-secondary">${time}</span></div>
+                    <div style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
+                        ${r.location ? '<span>📍 '+esc(r.location)+'</span>' : ''}
+                        ${r.gallons ? '<span>⛽ '+r.gallons+' gal</span>' : ''}
+                    </div>
+                    ${r.notes ? '<p class="text-secondary" style="margin-top:8px">'+esc(r.notes)+'</p>' : ''}
+                </div></div>`;
+            }
+            c.innerHTML = h;
+        }
+
+        function openModal() { document.getElementById('modalOverlay').style.display = 'flex'; }
+        function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
+
+        async function saveEntry(e) {
+            e.preventDefault();
+            const row = { job_name: document.getElementById('fJob').value, location: document.getElementById('fLoc').value, gallons: parseFloat(document.getElementById('fGal').value)||null, notes: document.getElementById('fNotes').value };
+            try { const { error } = await GasRush.db().from('deliveries').insert([row]); if (error) throw error; } catch(e) { console.warn('Insert failed:', e.message); }
+            closeModal(); await loadData();
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

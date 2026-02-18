@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Vendor Comparison</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Vendor Comparison</h1>
+                    <p class="text-secondary">Compare vendor performance side-by-side</p>
+                </div>
+                <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
+            </div>
+
+            <div id="vendorGrid">
+                <div class="empty-state"><div class="empty-state-icon">📊</div><h3>Loading...</h3></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'admin'] });
+            if (!user) return;
+            await loadData();
+        })();
+
+        async function loadData() {
+            let rows = [];
+            try {
+                const { data, error } = await GasRush.db().from('jobs').select('*');
+                if (error) throw error;
+                rows = data || [];
+            } catch(e) { console.warn('Jobs query failed:', e.message); }
+
+            const vendors = {};
+            for (const r of rows) {
+                const v = r.vendor_name || r.vendor || 'Unknown';
+                if (!vendors[v]) vendors[v] = { total: 0, completed: 0, gallons: 0 };
+                vendors[v].total++;
+                if (r.status === 'completed') vendors[v].completed++;
+                vendors[v].gallons += parseFloat(r.gallons || r.quantity || 0);
+            }
+
+            render(vendors);
+        }
+
+        function render(vendors) {
+            const c = document.getElementById('vendorGrid');
+            const keys = Object.keys(vendors);
+            if (!keys.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><h3>No vendor data</h3><p>Job data will appear here once vendors complete jobs.</p></div>'; return; }
+
+            let h = '<div class="grid-3">';
+            for (const name of keys) {
+                const v = vendors[name];
+                const rate = v.total ? Math.round(v.completed / v.total * 100) : 0;
+                const avg = v.total ? Math.round(v.gallons / v.total) : 0;
+                h += `<div class="card"><div style="padding:20px">
+                    <h3 style="margin:0 0 16px">${esc(name)}</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div><div class="text-secondary" style="font-size:12px">Total Jobs</div><div style="font-size:20px;font-weight:700">${v.total}</div></div>
+                        <div><div class="text-secondary" style="font-size:12px">Completed</div><div style="font-size:20px;font-weight:700">${v.completed}</div></div>
+                        <div><div class="text-secondary" style="font-size:12px">Avg Gallons</div><div style="font-size:20px;font-weight:700">${avg.toLocaleString()}</div></div>
+                        <div><div class="text-secondary" style="font-size:12px">Completion</div><div style="font-size:20px;font-weight:700">${rate}%</div></div>
+                    </div>
+                </div></div>`;
+            }
+            h += '</div>';
+            c.innerHTML = h;
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

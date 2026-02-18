@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Feature Flags</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .toggle-switch { position:relative; width:50px; height:26px; cursor:pointer; }
+        .toggle-switch input { opacity:0; width:0; height:0; }
+        .toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:13px; transition:.3s; }
+        .toggle-slider::before { content:''; position:absolute; height:20px; width:20px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; }
+        .toggle-switch input:checked + .toggle-slider { background:var(--success); }
+        .toggle-switch input:checked + .toggle-slider::before { transform:translateX(24px); }
+        .flag-card { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); }
+        .flag-card:last-child { border-bottom:none; }
+        .flag-name { font-weight:600; }
+        .flag-key { font-size:0.85em; color:var(--text-secondary); font-family:monospace; }
+        .group-title { padding:12px 20px; font-weight:700; text-transform:uppercase; font-size:0.8em; letter-spacing:0.05em; color:var(--text-secondary); background:var(--bg-secondary); }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1>Feature Flags</h1>
+                    <p class="text-secondary">Toggle features by role</p>
+                </div>
+            </div>
+
+            <div id="flagsContainer">
+                <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['admin'] });
+            if (!user) return;
+            await loadFlags();
+        })();
+
+        async function loadFlags() {
+            const container = document.getElementById('flagsContainer');
+            try {
+                const { data, error } = await GasRush.db().from('feature_flags').select('*').order('role').order('name');
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚩</div><h3>No flags configured</h3><p class="text-secondary">Feature flags will appear here once added to the database.</p></div>';
+                    return;
+                }
+                const grouped = {};
+                for (const f of data) {
+                    const role = f.role || 'general';
+                    if (!grouped[role]) grouped[role] = [];
+                    grouped[role].push(f);
+                }
+                let html = '';
+                for (const [role, flags] of Object.entries(grouped)) {
+                    html += `<div class="card" style="margin-bottom:16px;"><div class="group-title">${esc(role)}</div>`;
+                    for (const f of flags) {
+                        html += `<div class="flag-card">
+                            <div><div class="flag-name">${esc(f.name)}</div><div class="flag-key">${esc(f.key)}</div></div>
+                            <label class="toggle-switch"><input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFlag(${f.id}, this.checked)"><span class="toggle-slider"></span></label>
+                        </div>`;
+                    }
+                    html += '</div>';
+                }
+                container.innerHTML = html;
+            } catch(e) {
+                console.error(e);
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚩</div><h3>No flags configured</h3><p class="text-secondary">Feature flags will appear here once added to the database.</p></div>';
+            }
+        }
+
+        async function toggleFlag(id, enabled) {
+            try {
+                await GasRush.db().from('feature_flags').update({ enabled }).eq('id', id);
+            } catch(e) {
+                console.error('Toggle failed:', e);
+                if (typeof GasRush.toast === 'function') GasRush.toast('Failed to update flag', 'error');
+            }
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

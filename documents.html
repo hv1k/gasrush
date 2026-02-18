@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Documents</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Documents</h1>
+                    <p class="text-secondary">Store and manage files</p>
+                </div>
+                <div class="flex gap-2">
+                    <input class="form-input" id="searchBox" placeholder="Search documents…" oninput="filterDocs()" style="width:200px">
+                    <button class="btn btn-primary" onclick="alert('Upload coming soon')">📎 Upload Document</button>
+                </div>
+            </div>
+
+            <div class="flex gap-2" style="margin-bottom:16px">
+                <button class="btn btn-secondary filterBtn active" onclick="setCategory('All',this)">All</button>
+                <button class="btn btn-secondary filterBtn" onclick="setCategory('Contracts',this)">Contracts</button>
+                <button class="btn btn-secondary filterBtn" onclick="setCategory('Invoices',this)">Invoices</button>
+                <button class="btn btn-secondary filterBtn" onclick="setCategory('Permits',this)">Permits</button>
+                <button class="btn btn-secondary filterBtn" onclick="setCategory('Other',this)">Other</button>
+            </div>
+
+            <div class="grid-3" id="docsGrid"></div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        const DOCS = [
+            { name: 'Fuel Supply Agreement 2025.pdf', type: 'PDF', category: 'Contracts', date: '2025-01-10', size: '2.4 MB' },
+            { name: 'January Invoice — PetroCo.pdf', type: 'PDF', category: 'Invoices', date: '2025-02-01', size: '156 KB' },
+            { name: 'Site B Operating Permit.pdf', type: 'PDF', category: 'Permits', date: '2024-11-15', size: '890 KB' },
+            { name: 'Equipment Photos.zip', type: 'Image', category: 'Other', date: '2025-01-28', size: '12.1 MB' },
+            { name: 'Vendor Insurance Certificate.docx', type: 'Doc', category: 'Contracts', date: '2025-02-10', size: '340 KB' },
+        ];
+        let currentCat = 'All';
+
+        const icons = { PDF: '📄', Image: '🖼️', Doc: '📝' };
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
+            if (!user) return;
+            render();
+        })();
+
+        function setCategory(cat, btn) {
+            currentCat = cat;
+            document.querySelectorAll('.filterBtn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            render();
+        }
+
+        function filterDocs() { render(); }
+
+        function render() {
+            const q = (document.getElementById('searchBox').value || '').toLowerCase();
+            const filtered = DOCS.filter(d => (currentCat === 'All' || d.category === currentCat) && (!q || d.name.toLowerCase().includes(q)));
+            const c = document.getElementById('docsGrid');
+            if (!filtered.length) { c.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">📁</div><h3>No documents found</h3></div>'; return; }
+            let h = '';
+            for (const d of filtered) {
+                h += `<div class="card" style="cursor:pointer" onclick="alert('Preview coming soon')"><div style="padding:16px">
+                    <div style="font-size:32px;margin-bottom:8px">${icons[d.type]||'📄'}</div>
+                    <strong>${esc(d.name)}</strong>
+                    <div class="text-secondary" style="font-size:13px;margin-top:6px">${d.category} · ${d.size} · ${d.date}</div>
+                </div></div>`;
+            }
+            c.innerHTML = h;
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>
