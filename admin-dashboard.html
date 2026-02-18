@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Admin Dashboard</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Admin Dashboard</h1>
+                    <p class="text-secondary">System overview</p>
+                </div>
+                <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Users</div>
+                    <div class="stat-value" id="statUsers">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Jobs</div>
+                    <div class="stat-value" id="statJobs">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Jobs</div>
+                    <div class="stat-value" id="statActive">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Gallons</div>
+                    <div class="stat-value" id="statGallons">—</div>
+                    <div class="stat-sub">gal</div>
+                </div>
+            </div>
+
+            <!-- System Overview -->
+            <div class="card" style="margin-bottom:24px;">
+                <div class="card-header">
+                    <h2 class="card-title">System Overview</h2>
+                </div>
+                <div style="padding:24px;" id="systemOverview">
+                    <div class="grid-2" style="gap:24px;">
+                        <div>
+                            <p class="text-secondary" style="margin-bottom:8px;">Platform</p>
+                            <p><strong>GasRush Fuel Management</strong></p>
+                        </div>
+                        <div>
+                            <p class="text-secondary" style="margin-bottom:8px;">Status</p>
+                            <p><span class="badge badge-success">Operational</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Recent Activity</h2>
+                </div>
+                <div id="activityContainer">
+                    <div class="empty-state"><div class="empty-state-icon">📊</div><h3>Loading...</h3></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['admin'] });
+            if (!user) return;
+            await loadData();
+        })();
+
+        async function loadData() {
+            try {
+                const [jobsRes, usersRes] = await Promise.all([
+                    GasRush.db().from('jobs').select('*').order('created_at', { ascending: false }),
+                    GasRush.db().from('users').select('id', { count: 'exact', head: true })
+                ]);
+
+                const jobs = jobsRes.data || [];
+                const userCount = usersRes.count || 0;
+
+                const active = jobs.filter(j => ['active', 'assigned', 'pending'].includes(j.status)).length;
+                const gallons = jobs.reduce((s, j) => s + (parseFloat(j.total_gallons || j.gallons || 0)), 0);
+
+                document.getElementById('statUsers').textContent = userCount;
+                document.getElementById('statJobs').textContent = jobs.length;
+                document.getElementById('statActive').textContent = active;
+                document.getElementById('statGallons').textContent = gallons.toLocaleString();
+
+                renderActivity(jobs.slice(0, 10));
+            } catch(e) {
+                console.error('Failed to load:', e);
+                document.getElementById('statUsers').textContent = '0';
+                document.getElementById('statJobs').textContent = '0';
+                document.getElementById('statActive').textContent = '0';
+                document.getElementById('statGallons').textContent = '0';
+                renderActivity([]);
+            }
+        }
+
+        function renderActivity(jobs) {
+            const container = document.getElementById('activityContainer');
+            if (jobs.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📊</div><h3>No activity yet</h3></div>`;
+                return;
+            }
+
+            let html = '<div class="table-wrapper"><table><thead><tr>';
+            html += '<th>Date</th><th>Job</th><th>Status</th><th>Gallons</th><th>Created By</th>';
+            html += '</tr></thead><tbody>';
+
+            for (const job of jobs) {
+                const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—';
+                const status = job.status || 'pending';
+                const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
+                html += `<tr>
+                    <td>${date}</td>
+                    <td><strong>${esc(job.job_name || 'Untitled')}</strong></td>
+                    <td><span class="badge ${bc}">${status}</span></td>
+                    <td>${job.total_gallons || job.gallons || '—'}</td>
+                    <td>${esc(job.created_by || '—')}</td>
+                </tr>`;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

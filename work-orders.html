@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Work Orders</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Work Orders</h1>
+                    <p class="text-secondary">Manage and track all work orders</p>
+                </div>
+                <div class="flex gap-2" id="headerActions">
+                    <a href="create-job.html" class="btn btn-primary" id="createBtn">➕ Create Work Order</a>
+                    <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">All Work Orders</h2>
+                    <div class="flex gap-2">
+                        <input type="text" class="form-input" placeholder="Search..." id="searchInput" style="width:200px" oninput="filterOrders()">
+                        <select class="form-select" id="statusFilter" style="width:160px" onchange="filterOrders()">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="active">Active</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="ordersContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>Loading...</h3>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        let allOrders = [];
+        let currentUser = null;
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'vendor', 'fieldworker', 'admin'] });
+            if (!user) return;
+            currentUser = user;
+
+            // Hide create button for fieldworkers
+            if (user.role === 'fieldworker') {
+                document.getElementById('createBtn').style.display = 'none';
+            }
+
+            await loadData();
+        })();
+
+        async function loadData() {
+            try {
+                let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
+
+                // Fieldworkers see only their assigned jobs
+                if (currentUser.role === 'fieldworker') {
+                    query = query.eq('assigned_to', currentUser.id);
+                }
+                // Vendors see only their vendor's jobs
+                else if (currentUser.role === 'vendor') {
+                    query = query.eq('vendor_id', currentUser.vendor_id);
+                }
+
+                const { data: jobs, error } = await query;
+                if (error) throw error;
+                allOrders = jobs || [];
+                filterOrders();
+            } catch(e) {
+                console.error('Failed to load jobs:', e);
+                renderOrders([]);
+            }
+        }
+
+        function filterOrders() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            let filtered = allOrders;
+
+            if (status === 'pending') {
+                filtered = filtered.filter(j => ['pending', 'created'].includes(j.status));
+            } else if (status === 'active') {
+                filtered = filtered.filter(j => ['active', 'assigned'].includes(j.status));
+            } else if (status === 'completed') {
+                filtered = filtered.filter(j => j.status === 'completed');
+            }
+
+            if (search) {
+                filtered = filtered.filter(j =>
+                    (j.job_name || '').toLowerCase().includes(search) ||
+                    (j.address || '').toLowerCase().includes(search) ||
+                    (j.contract_number || '').toLowerCase().includes(search) ||
+                    (j.po_number || '').toLowerCase().includes(search) ||
+                    (j.customer_name || '').toLowerCase().includes(search)
+                );
+            }
+            renderOrders(filtered);
+        }
+
+        function renderOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+            if (orders.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>No work orders found</h3>
+                        <p>Try adjusting your search or filters</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '<div class="table-wrapper"><table><thead><tr>';
+            html += '<th>Date</th><th>Job</th><th>Location</th><th>Customer</th><th>Status</th><th>Gallons</th><th></th>';
+            html += '</tr></thead><tbody>';
+
+            for (const job of orders) {
+                const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—';
+                const name = job.job_name || job.contract_number || 'Untitled';
+                const loc = job.address ? `${job.address}, ${job.city || ''}` : job.city || '—';
+                const customer = job.customer_name || '—';
+                const gal = job.gallons_requested || job.total_gallons || job.gallons || '—';
+                const status = job.status || 'pending';
+                const badgeClass = status === 'completed' ? 'badge-success' :
+                    ['active', 'assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
+
+                html += `<tr>
+                    <td>${date}</td>
+                    <td><strong>${escapeHtml(name)}</strong></td>
+                    <td>${escapeHtml(loc)}</td>
+                    <td>${escapeHtml(customer)}</td>
+                    <td><span class="badge ${badgeClass}">${status}</span></td>
+                    <td>${gal}</td>
+                    <td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="viewJob('${job.id}')">View</button></td>
+                </tr>`;
+            }
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function viewJob(id) {
+            alert('Job detail view — coming soon');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    </script>
+</body>
+</html>

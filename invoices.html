@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Invoices</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Invoices</h1>
+                    <p class="text-secondary">Track payments and billing</p>
+                </div>
+                <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Invoices</div>
+                    <div class="stat-value" id="statTotal">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value" id="statPending">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Paid</div>
+                    <div class="stat-value" id="statPaid">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Amount</div>
+                    <div class="stat-value" id="statAmount">—</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">All Invoices</h2>
+                </div>
+                <div id="invoicesContainer">
+                    <div class="empty-state"><div class="empty-state-icon">💰</div><h3>Loading...</h3></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
+            if (!user) return;
+            await loadData();
+        })();
+
+        async function loadData() {
+            try {
+                const { data: invoices, error } = await GasRush.db()
+                    .from('invoices')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                const all = invoices || [];
+
+                const pending = all.filter(i => i.status === 'pending').length;
+                const paid = all.filter(i => i.status === 'paid').length;
+                const total = all.reduce((s, i) => s + (parseFloat(i.amount || 0)), 0);
+
+                document.getElementById('statTotal').textContent = all.length;
+                document.getElementById('statPending').textContent = pending;
+                document.getElementById('statPaid').textContent = paid;
+                document.getElementById('statAmount').textContent = '$' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                renderInvoices(all);
+            } catch(e) {
+                console.error('Failed to load invoices:', e);
+                renderInvoices([]);
+            }
+        }
+
+        function renderInvoices(invoices) {
+            const container = document.getElementById('invoicesContainer');
+            if (invoices.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>No invoices yet</h3></div>`;
+                return;
+            }
+
+            let html = '<div class="table-wrapper"><table><thead><tr>';
+            html += '<th>Date</th><th>Invoice #</th><th>Vendor</th><th>Amount</th><th>Status</th><th></th>';
+            html += '</tr></thead><tbody>';
+
+            for (const inv of invoices) {
+                const date = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '—';
+                const status = inv.status || 'pending';
+                const bc = status === 'paid' ? 'badge-success' : status === 'overdue' ? 'badge-danger' : 'badge-warning';
+                const amount = inv.amount ? '$' + parseFloat(inv.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—';
+
+                html += `<tr>
+                    <td>${date}</td>
+                    <td><strong>${esc(inv.invoice_number || inv.id || '—')}</strong></td>
+                    <td>${esc(inv.vendor_name || '—')}</td>
+                    <td>${amount}</td>
+                    <td><span class="badge ${bc}">${status}</span></td>
+                    <td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="viewInvoice('${inv.id}')">View</button></td>
+                </tr>`;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function viewInvoice(id) { alert('Invoice detail — coming soon'); }
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>
