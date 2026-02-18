@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Field Workers</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Field Workers</h1>
+                    <p class="text-secondary">Manage your field team</p>
+                </div>
+                <button class="btn btn-primary" onclick="openModal()">+ Add Field Worker</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label">Total Workers</div><div class="stat-value" id="statTotal">—</div></div>
+                <div class="stat-card"><div class="stat-label">Active Now</div><div class="stat-value" id="statActive">—</div></div>
+                <div class="stat-card"><div class="stat-label">On Break</div><div class="stat-value" id="statBreak">—</div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2 class="card-title">All Field Workers</h2></div>
+                <div id="workersTable">
+                    <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="workerModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header"><h2 class="modal-title">Add Field Worker</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Name</label><input type="text" id="mName" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Email</label><input type="email" id="mEmail" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="mPhone" class="form-input"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addWorker()">Add Worker</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        const mockWorkers = [
+            { name: 'Mike Johnson', email: 'mike@gasrush.com', phone: '(555) 111-2222', status: 'active', current_job: 'Downtown Refuel' },
+            { name: 'Sarah Chen', email: 'sarah@gasrush.com', phone: '(555) 333-4444', status: 'active', current_job: 'Harbor Delivery' },
+            { name: 'Carlos Rivera', email: 'carlos@gasrush.com', phone: '(555) 555-6666', status: 'offline', current_job: null },
+            { name: 'Alex Kim', email: 'alex@gasrush.com', phone: '(555) 777-8888', status: 'break', current_job: null }
+        ];
+
+        let workers = [];
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['vendor', 'admin'] });
+            if (!user) return;
+            await loadWorkers();
+        })();
+
+        async function loadWorkers() {
+            try {
+                const { data, error } = await GasRush.db().from('users').select('*').eq('role', 'fieldworker');
+                if (error) throw error;
+                workers = (data && data.length > 0) ? data : mockWorkers;
+            } catch(e) {
+                console.error(e);
+                workers = mockWorkers;
+            }
+            updateStats();
+            renderTable();
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').textContent = workers.length;
+            document.getElementById('statActive').textContent = workers.filter(w => w.status === 'active').length;
+            document.getElementById('statBreak').textContent = workers.filter(w => w.status === 'break').length;
+        }
+
+        function renderTable() {
+            const c = document.getElementById('workersTable');
+            if (!workers.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👷</div><h3>No field workers found</h3></div>'; return; }
+            const sb = { active: 'badge-success', offline: 'badge-secondary', break: 'badge-warning' };
+            let h = '<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Current Job</th></tr></thead><tbody>';
+            for (const w of workers) {
+                const badge = sb[w.status] || 'badge-secondary';
+                h += `<tr><td><strong>${esc(w.name||'—')}</strong></td><td>${esc(w.email||'—')}</td><td>${esc(w.phone||'—')}</td><td><span class="badge ${badge}">${w.status||'offline'}</span></td><td>${esc(w.current_job||'—')}</td></tr>`;
+            }
+            h += '</tbody></table></div>';
+            c.innerHTML = h;
+        }
+
+        function openModal() { document.getElementById('workerModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('workerModal').style.display = 'none'; }
+
+        async function addWorker() {
+            const name = document.getElementById('mName').value.trim();
+            const email = document.getElementById('mEmail').value.trim();
+            const phone = document.getElementById('mPhone').value.trim();
+            if (!name || !email) { if (typeof GasRush.toast === 'function') GasRush.toast('Name and email required', 'error'); return; }
+            try {
+                const { error } = await GasRush.db().from('users').insert({ name, email, phone, role: 'fieldworker', status: 'active' });
+                if (error) throw error;
+                closeModal();
+                if (typeof GasRush.toast === 'function') GasRush.toast('Field worker added', 'success');
+                await loadWorkers();
+            } catch(e) {
+                console.error(e);
+                workers.push({ name, email, phone, status: 'active', current_job: null });
+                closeModal();
+                updateStats();
+                renderTable();
+                if (typeof GasRush.toast === 'function') GasRush.toast('Field worker added (local)', 'success');
+            }
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

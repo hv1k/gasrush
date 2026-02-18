@@ -154,9 +154,11 @@ const GasRush = (() => {
             tools: [
                 { label: 'Reports', icon: '📈', href: 'reports.html', flag: 'page.reports' },
                 { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily-log' },
-                { label: 'Route Planning', icon: '🗺️', href: 'routes.html', flag: 'page.routes' }
+                { label: 'Route Planning', icon: '🗺️', href: 'routes.html', flag: 'page.routes' },
+                { label: 'Documents', icon: '📁', href: 'documents.html', flag: 'page.documents' }
             ],
             settings: [
+                { label: 'Alerts', icon: '🔔', href: 'alerts.html', flag: 'page.alerts' },
                 { label: 'Settings', icon: '⚙️', href: 'settings.html' }
             ]
         },
@@ -185,15 +187,25 @@ const GasRush = (() => {
                 { label: 'Contracts', icon: '📝', href: 'contracts.html' },
                 { label: 'Equipment', icon: '⚙️', href: 'equipment.html' },
                 { label: 'Companies', icon: '🏢', href: 'companies.html' },
-                { label: 'Users', icon: '👥', href: 'users.html' }
+                { label: 'Users', icon: '👥', href: 'users.html' },
+                { label: 'Field Workers', icon: '👷', href: 'field-workers.html' }
             ],
             tools: [
                 { label: 'Reports', icon: '📈', href: 'reports.html' },
+                { label: 'Daily Log', icon: '📒', href: 'daily-log.html' },
+                { label: 'Documents', icon: '📁', href: 'documents.html' },
+                { label: 'Routes', icon: '🗺️', href: 'routes.html' },
+                { label: 'Recurring Jobs', icon: '🔁', href: 'recurring-jobs.html' },
+                { label: 'Bulk Import', icon: '📥', href: 'bulk-import.html' },
+                { label: 'Data Export', icon: '📤', href: 'data-export.html' },
+                { label: 'Chat', icon: '💬', href: 'chat.html' }
+            ],
+            admin: [
                 { label: 'Feature Flags', icon: '🚩', href: 'feature-flags.html' },
-                { label: 'System Health', icon: '💚', href: 'system-health.html' },
-                { label: 'Data Export', icon: '📤', href: 'data-export.html' }
+                { label: 'System Health', icon: '💚', href: 'system-health.html' }
             ],
             settings: [
+                { label: 'Alerts', icon: '🔔', href: 'alerts.html' },
                 { label: 'Settings', icon: '⚙️', href: 'settings.html' }
             ]
         }
@@ -217,6 +229,7 @@ const GasRush = (() => {
             management: 'MANAGEMENT',
             team: 'TEAM',
             tools: 'TOOLS',
+            admin: 'ADMIN',
             settings: 'SETTINGS'
         };
 
