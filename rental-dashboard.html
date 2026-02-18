@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Dashboard</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main-content">
+            <div class="page-header flex justify-between items-center">
+                <div>
+                    <h1>Dashboard</h1>
+                    <p id="greeting">Good morning</p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="create-job.html" class="btn btn-primary">➕ Create Work Order</a>
+                    <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-label">Active Orders</div>
+                    <div class="stat-value" id="statActive">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value" id="statPending">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Gallons</div>
+                    <div class="stat-value" id="statGallons">—</div>
+                    <div class="stat-sub">gal</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-value" id="statCompleted">—</div>
+                </div>
+            </div>
+
+            <!-- Recent Work Orders -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">My Work Orders</h2>
+                    <div class="flex gap-2">
+                        <input type="text" class="form-input" placeholder="Search orders..." id="searchInput" style="width:200px" oninput="filterOrders()">
+                        <select class="form-select" id="statusFilter" style="width:160px" onchange="filterOrders()">
+                            <option value="">All Status</option>
+                            <option value="active" selected>Active & Pending</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="ordersContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>Loading...</h3>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script>
+        let allOrders = [];
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'admin'] });
+            if (!user) return;
+
+            // Greeting
+            const hour = new Date().getHours();
+            const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+            document.getElementById('greeting').textContent = `${greet}, ${user.name}`;
+
+            await loadData();
+        })();
+
+        async function loadData() {
+            try {
+                const { data: jobs, error } = await GasRush.db()
+                    .from('jobs')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                allOrders = jobs || [];
+
+                // Stats
+                const active = allOrders.filter(j => j.status === 'active' || j.status === 'assigned').length;
+                const pending = allOrders.filter(j => j.status === 'pending' || j.status === 'created').length;
+                const completed = allOrders.filter(j => j.status === 'completed').length;
+                const gallons = allOrders.reduce((sum, j) => sum + (parseFloat(j.total_gallons || j.gallons || 0)), 0);
+
+                document.getElementById('statActive').textContent = active;
+                document.getElementById('statPending').textContent = pending;
+                document.getElementById('statCompleted').textContent = completed;
+                document.getElementById('statGallons').textContent = gallons.toLocaleString();
+
+                filterOrders();
+            } catch(e) {
+                console.error('Failed to load jobs:', e);
+                document.getElementById('statActive').textContent = '0';
+                document.getElementById('statPending').textContent = '0';
+                document.getElementById('statCompleted').textContent = '0';
+                document.getElementById('statGallons').textContent = '0';
+                renderOrders([]);
+            }
+        }
+
+        function filterOrders() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+
+            let filtered = allOrders;
+
+            if (status === 'active') {
+                filtered = filtered.filter(j => ['pending', 'created', 'active', 'assigned'].includes(j.status));
+            } else if (status === 'completed') {
+                filtered = filtered.filter(j => j.status === 'completed');
+            }
+
+            if (search) {
+                filtered = filtered.filter(j =>
+                    (j.job_name || '').toLowerCase().includes(search) ||
+                    (j.location || j.address || '').toLowerCase().includes(search) ||
+                    (j.contract_number || '').toLowerCase().includes(search) ||
+                    (j.po_number || '').toLowerCase().includes(search)
+                );
+            }
+
+            renderOrders(filtered);
+        }
+
+        function renderOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+
+            if (orders.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>No orders found</h3>
+                        <p>Create your first work order to get started</p>
+                        <a href="create-job.html" class="btn btn-primary">➕ Create Work Order</a>
+                    </div>`;
+                return;
+            }
+
+            let html = '<div class="table-wrapper"><table><thead><tr>';
+            html += '<th>Date</th><th>Job</th><th>Location</th><th>Status</th><th>Gallons</th><th></th>';
+            html += '</tr></thead><tbody>';
+
+            for (const job of orders) {
+                const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—';
+                const name = job.job_name || job.contract_number || 'Untitled';
+                const loc = job.location || job.address || job.city || '—';
+                const gal = job.total_gallons || job.gallons || '—';
+                const status = job.status || 'pending';
+                const badgeClass = status === 'completed' ? 'badge-success' :
+                    ['active', 'assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
+
+                html += `<tr>
+                    <td>${date}</td>
+                    <td><strong>${escapeHtml(name)}</strong></td>
+                    <td>${escapeHtml(loc)}</td>
+                    <td><span class="badge ${badgeClass}">${status}</span></td>
+                    <td>${gal}</td>
+                    <td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="viewJob('${job.id}')">View</button></td>
+                </tr>`;
+            }
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function viewJob(id) {
+            // TODO: job detail modal or page
+            alert('Job detail view — coming soon');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    </script>
+</body>
+</html>

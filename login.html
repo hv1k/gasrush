@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Login</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg-body);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 40px 32px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .login-brand {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-brand .logo {
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            border-radius: var(--radius-md);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .login-brand h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .login-brand p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .login-form {
+            margin-bottom: 24px;
+        }
+
+        .login-form .btn-primary {
+            width: 100%;
+            justify-content: center;
+            padding: 12px;
+            font-size: 15px;
+            margin-top: 8px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 24px 0;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .demo-section h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .demo-btn {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            font-family: var(--font);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+
+        .demo-btn:hover {
+            background: var(--bg-active);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .demo-btn .role-icon {
+            display: block;
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-brand">
+                <div class="logo">⛽</div>
+                <h1>GasRush</h1>
+                <p>Fuel delivery management platform</p>
+            </div>
+
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="email" class="form-input" placeholder="you@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Sign In</button>
+            </form>
+
+            <div class="divider">Demo Accounts</div>
+
+            <div class="demo-section">
+                <div class="demo-grid">
+                    <button class="demo-btn" onclick="GasRush.demoLogin('rental')">
+                        <span class="role-icon">🏢</span>
+                        Rental
+                    </button>
+                    <button class="demo-btn" onclick="GasRush.demoLogin('vendor')">
+                        <span class="role-icon">🚛</span>
+                        Vendor
+                    </button>
+                    <button class="demo-btn" onclick="GasRush.demoLogin('fieldworker')">
+                        <span class="role-icon">👷</span>
+                        Field Worker
+                    </button>
+                    <button class="demo-btn" onclick="GasRush.demoLogin('admin')">
+                        <span class="role-icon">🔧</span>
+                        Admin
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script>
+        // If already logged in, redirect
+        const user = GasRush.getUser();
+        if (user) window.location.href = user.role === 'rental' ? 'rental-dashboard.html' :
+            user.role === 'vendor' ? 'vendor-dashboard.html' :
+            user.role === 'fieldworker' ? 'field-worker.html' : 'admin-dashboard.html';
+
+        function handleLogin(e) {
+            e.preventDefault();
+            // TODO: real Supabase auth
+            alert('Use a demo account for now');
+        }
+    </script>
+</body>
+</html>
