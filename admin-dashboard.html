@@ -98,7 +98,7 @@
                 const userCount = usersRes.count || 0;
 
                 const active = jobs.filter(j => ['active', 'assigned', 'pending'].includes(j.status)).length;
-                const gallons = jobs.reduce((s, j) => s + (parseFloat(j.total_gallons || j.gallons || 0)), 0);
+                const gallons = jobs.reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
 
                 document.getElementById('statUsers').textContent = userCount;
                 document.getElementById('statJobs').textContent = jobs.length;
@@ -133,9 +133,9 @@
                 const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
                 html += `<tr>
                     <td>${date}</td>
-                    <td><strong>${esc(job.job_name || 'Untitled')}</strong></td>
+                    <td><strong>${esc(job.job_site_name || 'Untitled')}</strong></td>
                     <td><span class="badge ${bc}">${status}</span></td>
-                    <td>${job.total_gallons || job.gallons || '—'}</td>
+                    <td>${job.billable_services?.fuelGallons || '—'}</td>
                     <td>${esc(job.created_by || '—')}</td>
                 </tr>`;
             }

@@ -108,7 +108,7 @@
                 const active = allOrders.filter(j => j.status === 'active' || j.status === 'assigned').length;
                 const pending = allOrders.filter(j => j.status === 'pending' || j.status === 'created').length;
                 const completed = allOrders.filter(j => j.status === 'completed').length;
-                const gallons = allOrders.reduce((sum, j) => sum + (parseFloat(j.total_gallons || j.gallons || 0)), 0);
+                const gallons = allOrders.reduce((sum, j) => sum + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
 
                 document.getElementById('statActive').textContent = active;
                 document.getElementById('statPending').textContent = pending;
@@ -140,8 +140,8 @@
 
             if (search) {
                 filtered = filtered.filter(j =>
-                    (j.job_name || '').toLowerCase().includes(search) ||
-                    (j.location || j.address || '').toLowerCase().includes(search) ||
+                    (j.job_site_name || '').toLowerCase().includes(search) ||
+                    (j.address_city || '').toLowerCase().includes(search) ||
                     (j.contract_number || '').toLowerCase().includes(search) ||
                     (j.po_number || '').toLowerCase().includes(search)
                 );
@@ -170,9 +170,9 @@
 
             for (const job of orders) {
                 const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—';
-                const name = job.job_name || job.contract_number || 'Untitled';
-                const loc = job.location || job.address || job.city || '—';
-                const gal = job.total_gallons || job.gallons || '—';
+                const name = job.job_site_name || job.contract_number || 'Untitled';
+                const loc = job.address_city || '—';
+                const gal = job.billable_services?.fuelGallons || '—';
                 const status = job.status || 'pending';
                 const badgeClass = status === 'completed' ? 'badge-success' :
                     ['active', 'assigned'].includes(status) ? 'badge-primary' : 'badge-warning';

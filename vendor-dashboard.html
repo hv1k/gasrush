@@ -95,7 +95,7 @@
 
                 const assigned = all.filter(j => ['pending', 'active', 'assigned'].includes(j.status)).length;
                 const completed = all.filter(j => j.status === 'completed').length;
-                const gallons = all.reduce((s, j) => s + (parseFloat(j.total_gallons || j.gallons || 0)), 0);
+                const gallons = all.reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
                 const workers = new Set(all.filter(j => j.assigned_to).map(j => j.assigned_to)).size;
 
                 document.getElementById('statAssigned').textContent = assigned;
@@ -123,9 +123,9 @@
 
             for (const job of jobs) {
                 const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—';
-                const name = job.job_name || 'Untitled';
-                const loc = job.address || job.city || '—';
-                const gal = job.total_gallons || job.gallons || '—';
+                const name = job.job_site_name || 'Untitled';
+                const loc = job.address_city || '—';
+                const gal = job.billable_services?.fuelGallons || '—';
                 const status = job.status || 'pending';
                 const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
                 html += `<tr><td>${date}</td><td><strong>${esc(name)}</strong></td><td>${esc(loc)}</td><td><span class="badge ${bc}">${status}</span></td><td>${gal}</td></tr>`;

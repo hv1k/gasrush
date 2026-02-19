@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GasRush — Work Orders</title>
     <link rel="stylesheet" href="theme.css">
+    <style>
+        .job-detail { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0; }
+        .job-detail-item label { font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; }
+        .job-detail-item .value { font-size:14px; color:var(--text-primary); margin-top:2px; }
+        .actions-bar { display:flex; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap; }
+        @media(max-width:768px) { .job-detail { grid-template-columns:1fr; } }
+    </style>
 </head>
 <body>
     <div class="app-layout">
@@ -21,7 +28,7 @@
             <div class="page-header flex justify-between items-center">
                 <div>
                     <h1>Work Orders</h1>
-                    <p class="text-secondary">Manage and track all work orders</p>
+                    <p class="text-muted">Manage and track all work orders</p>
                 </div>
                 <div class="flex gap-2" id="headerActions">
                     <a href="create-job.html" class="btn btn-primary" id="createBtn">➕ Create Work Order</a>
@@ -37,19 +44,27 @@
                         <select class="form-select" id="statusFilter" style="width:160px" onchange="filterOrders()">
                             <option value="">All Status</option>
                             <option value="pending">Pending</option>
-                            <option value="active">Active</option>
+                            <option value="active">Active / Assigned</option>
                             <option value="completed">Completed</option>
                         </select>
                     </div>
                 </div>
                 <div id="ordersContainer">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📋</div>
-                        <h3>Loading...</h3>
-                    </div>
+                    <div class="empty-state"><div class="empty-state-icon">📋</div><h3>Loading...</h3></div>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Job Detail Modal -->
+    <div class="modal-overlay" id="jobModal">
+        <div class="modal" style="max-width:640px">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Job Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -60,15 +75,12 @@
         let currentUser = null;
 
         (async () => {
-            const user = await GasRush.init({ roles: ['rental', 'vendor', 'fieldworker', 'admin'] });
-            if (!user) return;
-            currentUser = user;
+            currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'fieldworker', 'admin'] });
+            if (!currentUser) return;
 
-            // Hide create button for fieldworkers
-            if (user.role === 'fieldworker') {
+            if (currentUser.role === 'fieldworker') {
                 document.getElementById('createBtn').style.display = 'none';
             }
-
             await loadData();
         })();
 
@@ -76,21 +88,18 @@
             try {
                 let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
 
-                // Fieldworkers see only their assigned jobs
                 if (currentUser.role === 'fieldworker') {
-                    query = query.eq('assigned_to', currentUser.id);
-                }
-                // Vendors see only their vendor's jobs
-                else if (currentUser.role === 'vendor') {
-                    query = query.eq('vendor_id', currentUser.vendor_id);
+                    query = query.eq('assigned_worker', currentUser.id);
+                } else if (currentUser.role === 'vendor') {
+                    query = query.eq('assigned_vendor', currentUser.vendor_id);
                 }
 
-                const { data: jobs, error } = await query;
+                const { data, error } = await query;
                 if (error) throw error;
-                allOrders = jobs || [];
+                allOrders = data || [];
                 filterOrders();
             } catch(e) {
-                console.error('Failed to load jobs:', e);
+                console.error('Load failed:', e);
                 renderOrders([]);
             }
         }
@@ -100,75 +109,180 @@
             const status = document.getElementById('statusFilter').value;
             let filtered = allOrders;
 
-            if (status === 'pending') {
-                filtered = filtered.filter(j => ['pending', 'created'].includes(j.status));
-            } else if (status === 'active') {
-                filtered = filtered.filter(j => ['active', 'assigned'].includes(j.status));
-            } else if (status === 'completed') {
-                filtered = filtered.filter(j => j.status === 'completed');
-            }
+            if (status === 'pending') filtered = filtered.filter(j => ['pending','created'].includes(j.status));
+            else if (status === 'active') filtered = filtered.filter(j => ['active','assigned'].includes(j.status));
+            else if (status === 'completed') filtered = filtered.filter(j => j.status === 'completed');
 
             if (search) {
                 filtered = filtered.filter(j =>
-                    (j.job_name || '').toLowerCase().includes(search) ||
-                    (j.address || '').toLowerCase().includes(search) ||
-                    (j.contract_number || '').toLowerCase().includes(search) ||
-                    (j.po_number || '').toLowerCase().includes(search) ||
-                    (j.customer_name || '').toLowerCase().includes(search)
+                    (j.job_site_name||'').toLowerCase().includes(search) ||
+                    (j.address_street||'').toLowerCase().includes(search) ||
+                    (j.address_city||'').toLowerCase().includes(search) ||
+                    (j.contract_number||'').toLowerCase().includes(search) ||
+                    (j.customer_name||'').toLowerCase().includes(search)
                 );
             }
             renderOrders(filtered);
         }
 
         function renderOrders(orders) {
-            const container = document.getElementById('ordersContainer');
-            if (orders.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📋</div>
-                        <h3>No work orders found</h3>
-                        <p>Try adjusting your search or filters</p>
-                    </div>`;
+            const c = document.getElementById('ordersContainer');
+            if (!orders.length) {
+                c.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No work orders found</h3><p>Try adjusting your filters</p></div>`;
                 return;
             }
 
-            let html = '<div class="table-wrapper"><table><thead><tr>';
-            html += '<th>Date</th><th>Job</th><th>Location</th><th>Customer</th><th>Status</th><th>Gallons</th><th></th>';
-            html += '</tr></thead><tbody>';
-
-            for (const job of orders) {
-                const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—';
-                const name = job.job_name || job.contract_number || 'Untitled';
-                const loc = job.address ? `${job.address}, ${job.city || ''}` : job.city || '—';
-                const customer = job.customer_name || '—';
-                const gal = job.gallons_requested || job.total_gallons || job.gallons || '—';
-                const status = job.status || 'pending';
-                const badgeClass = status === 'completed' ? 'badge-success' :
-                    ['active', 'assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
-
-                html += `<tr>
-                    <td>${date}</td>
-                    <td><strong>${escapeHtml(name)}</strong></td>
-                    <td>${escapeHtml(loc)}</td>
-                    <td>${escapeHtml(customer)}</td>
-                    <td><span class="badge ${badgeClass}">${status}</span></td>
-                    <td>${gal}</td>
-                    <td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="viewJob('${job.id}')">View</button></td>
+            let html = '<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Job Site</th><th>City</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>';
+            for (const j of orders) {
+                const date = j.created_at ? new Date(j.created_at).toLocaleDateString() : '—';
+                const name = j.job_site_name || j.contract_number || 'Untitled';
+                const city = j.address_city || '—';
+                const type = (j.job_type || 'delivery').replace('-', ' ');
+                const status = j.status || 'pending';
+                const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
+                html += `<tr style="cursor:pointer" onclick="viewJob('${j.id}')">
+                    <td>${date}</td><td><strong>${esc(name)}</strong></td><td>${esc(city)}</td>
+                    <td style="text-transform:capitalize">${type}</td><td><span class="badge ${bc}">${status}</span></td>
+                    <td><button class="btn btn-secondary" style="padding:4px 12px;font-size:12px">View</button></td>
                 </tr>`;
             }
-
             html += '</tbody></table></div>';
-            container.innerHTML = html;
+            c.innerHTML = html;
         }
 
         function viewJob(id) {
-            alert('Job detail view — coming soon');
+            const job = allOrders.find(j => j.id === id);
+            if (!job) return;
+
+            const modal = document.getElementById('jobModal');
+            document.getElementById('modalTitle').textContent = job.job_site_name || 'Job Details';
+
+            const fuel = job.billable_services?.fuelGallons || '—';
+            const def = job.billable_services?.defGallons || '—';
+            const status = job.status || 'pending';
+
+            let html = `
+                <div class="job-detail">
+                    <div class="job-detail-item"><label>Status</label><div class="value"><span class="badge ${status==='completed'?'badge-success':['active','assigned'].includes(status)?'badge-primary':'badge-warning'}">${status}</span></div></div>
+                    <div class="job-detail-item"><label>Type</label><div class="value" style="text-transform:capitalize">${(job.job_type||'delivery').replace('-',' ')}</div></div>
+                    <div class="job-detail-item"><label>Contract #</label><div class="value">${esc(job.contract_number||'—')}</div></div>
+                    <div class="job-detail-item"><label>PO #</label><div class="value">${esc(job.po_number||'—')}</div></div>
+                    <div class="job-detail-item"><label>Address</label><div class="value">${esc(job.address_street||'—')}</div></div>
+                    <div class="job-detail-item"><label>City / State</label><div class="value">${esc(job.address_city||'')} ${esc(job.address_state||'')} ${esc(job.address_zip||'')}</div></div>
+                    <div class="job-detail-item"><label>Customer</label><div class="value">${esc(job.customer_name||'—')}</div></div>
+                    <div class="job-detail-item"><label>Contact</label><div class="value">${esc(job.contact_name||'—')} ${esc(job.contact_phone||'')}</div></div>
+                    <div class="job-detail-item"><label>Fuel Gallons</label><div class="value">${fuel}</div></div>
+                    <div class="job-detail-item"><label>DEF Gallons</label><div class="value">${def}</div></div>
+                    <div class="job-detail-item"><label>Priority</label><div class="value" style="text-transform:capitalize">${job.priority||'normal'}</div></div>
+                    <div class="job-detail-item"><label>Created</label><div class="value">${job.created_at ? new Date(job.created_at).toLocaleString() : '—'}</div></div>
+                </div>`;
+
+            if (job.instructions) {
+                html += `<div style="margin-top:12px"><label class="form-label">Instructions</label><p style="font-size:14px;color:var(--text-secondary)">${esc(job.instructions)}</p></div>`;
+            }
+
+            // Role-based actions
+            html += '<div class="actions-bar">';
+
+            if (currentUser.role === 'vendor' || currentUser.role === 'admin') {
+                if (status === 'pending') {
+                    html += `<button class="btn btn-primary" onclick="updateJobStatus('${id}','assigned')">✅ Accept Job</button>`;
+                }
+                if (['pending','assigned'].includes(status)) {
+                    html += `<button class="btn btn-secondary" onclick="assignWorker('${id}')">👷 Assign Worker</button>`;
+                }
+            }
+
+            if (currentUser.role === 'fieldworker' || currentUser.role === 'admin') {
+                if (['assigned','active'].includes(status)) {
+                    html += `<button class="btn btn-primary" onclick="updateJobStatus('${id}','active')">🚛 Start Job</button>`;
+                    html += `<button class="btn btn-success" onclick="completeJob('${id}')">✅ Complete Job</button>`;
+                }
+            }
+
+            if (currentUser.role === 'rental' && status === 'pending') {
+                html += `<button class="btn btn-danger" onclick="updateJobStatus('${id}','cancelled')" style="margin-left:auto">Cancel Order</button>`;
+            }
+
+            html += `<button class="btn btn-secondary" onclick="closeModal()" style="margin-left:auto">Close</button>`;
+            html += '</div>';
+
+            document.getElementById('modalBody').innerHTML = html;
+            modal.classList.add('active');
         }
 
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        async function updateJobStatus(id, newStatus) {
+            try {
+                const update = { status: newStatus };
+                if (newStatus === 'assigned') update.assigned_vendor = currentUser.vendor_id || currentUser.id;
+                if (newStatus === 'completed') update.completed_at = new Date().toISOString();
+
+                const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
+                if (error) throw error;
+
+                const job = allOrders.find(j => j.id === id);
+                if (job) Object.assign(job, update);
+                filterOrders();
+                viewJob(id);
+            } catch(e) {
+                alert('Failed: ' + e.message);
+            }
         }
+
+        async function completeJob(id) {
+            const gallons = prompt('Enter fuel gallons delivered (or leave blank):');
+            try {
+                const update = { status: 'completed', completed_at: new Date().toISOString() };
+                
+                const job = allOrders.find(j => j.id === id);
+                if (gallons && !isNaN(gallons)) {
+                    const bs = job?.billable_services || {};
+                    bs.fuelGallons = parseFloat(gallons);
+                    update.billable_services = bs;
+                }
+
+                const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
+                if (error) throw error;
+
+                // Create invoice
+                try {
+                    await GasRush.db().from('invoices').insert({
+                        job_id: id,
+                        vendor_id: job?.assigned_vendor || currentUser.vendor_id,
+                        amount: gallons ? (parseFloat(gallons) * 3.50).toFixed(2) : 0,
+                        status: 'pending',
+                        created_at: new Date().toISOString(),
+                        description: `Fuel delivery - ${job?.job_site_name || 'Job'}`
+                    });
+                } catch(ie) {
+                    console.warn('Invoice creation failed (table may not exist):', ie);
+                }
+
+                if (job) Object.assign(job, update);
+                filterOrders();
+                closeModal();
+                alert('Job completed' + (gallons ? ` — ${gallons} gal delivered` : '') + '. Invoice created.');
+            } catch(e) {
+                alert('Failed: ' + e.message);
+            }
+        }
+
+        function assignWorker(id) {
+            const workerName = prompt('Enter field worker name or ID to assign:');
+            if (!workerName) return;
+            updateJobStatus(id, 'assigned');
+        }
+
+        function closeModal() {
+            document.getElementById('jobModal').classList.remove('active');
+        }
+
+        // Close modal on backdrop click
+        document.getElementById('jobModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     </script>
 </body>
 </html>

@@ -89,7 +89,7 @@
                 const active = all.filter(j => ['active', 'assigned', 'pending'].includes(j.status)).length;
                 const today = new Date().toISOString().slice(0, 10);
                 const completedToday = all.filter(j => j.status === 'completed' && j.completed_at && j.completed_at.startsWith(today)).length;
-                const gallons = all.filter(j => j.status === 'completed').reduce((s, j) => s + (parseFloat(j.total_gallons || j.gallons || 0)), 0);
+                const gallons = all.filter(j => j.status === 'completed').reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
 
                 document.getElementById('statActive').textContent = active;
                 document.getElementById('statToday').textContent = completedToday;
@@ -116,8 +116,8 @@
             container.innerHTML = sorted.map(job => {
                 const status = job.status || 'pending';
                 const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
-                const loc = [job.address, job.city, job.state].filter(Boolean).join(', ') || '—';
-                const gal = job.gallons_requested || job.total_gallons || '—';
+                const loc = [job.address_street, job.address_city, job.address_state].filter(Boolean).join(', ') || '—';
+                const gal = job.billable_services?.fuelGallons || '—';
                 const isActive = ['active', 'assigned', 'pending'].includes(status);
 
                 let actions = '';
@@ -129,7 +129,7 @@
 
                 return `<div class="job-card">
                     <div class="job-card-header">
-                        <div class="job-card-title">${esc(job.job_name || 'Untitled')}</div>
+                        <div class="job-card-title">${esc(job.job_site_name || 'Untitled')}</div>
                         <span class="badge ${bc}">${status}</span>
                     </div>
                     <div class="job-card-detail">📍 ${esc(loc)}</div>

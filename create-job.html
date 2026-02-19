@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GasRush — Create Work Order</title>
     <link rel="stylesheet" href="theme.css">
+    <style>
+        .form-card { max-width: 800px; }
+        .section-title { font-size:16px; font-weight:700; color:var(--text-primary); margin:24px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+        .section-title:first-child { margin-top:0; }
+    </style>
 </head>
 <body>
     <div class="app-layout">
@@ -20,86 +25,108 @@
         <main class="main-content">
             <div class="page-header">
                 <h1>Create Work Order</h1>
-                <p class="text-secondary">Fill in the details to create a new job</p>
+                <p class="text-muted">Submit a new fuel delivery or service request</p>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">New Work Order</h2>
-                </div>
-                <form id="jobForm" onsubmit="submitJob(event)" style="padding: 24px;">
-                    <div class="form-group">
-                        <label class="form-label">Job Name *</label>
-                        <input type="text" class="form-input" name="job_name" required placeholder="e.g. Generator Refuel — Site A">
-                    </div>
+            <div class="card form-card">
+                <form id="jobForm" onsubmit="submitJob(event)">
 
+                    <div class="section-title">Job Details</div>
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">Contract Number</label>
-                            <input type="text" class="form-input" name="contract_number" placeholder="Contract #">
+                            <label class="form-label">Job Site Name *</label>
+                            <input name="job_site_name" class="form-input" placeholder="e.g. Kindred Apartments" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">PO Number</label>
-                            <input type="text" class="form-input" name="po_number" placeholder="PO #">
+                            <label class="form-label">Job Type</label>
+                            <select name="job_type" class="form-select">
+                                <option value="fuel-delivery">Fuel Delivery</option>
+                                <option value="service">Generator Service</option>
+                                <option value="swap">Equipment Swap</option>
+                                <option value="pickup">Pickup</option>
+                            </select>
                         </div>
                     </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Address *</label>
-                        <input type="text" class="form-input" name="address" required placeholder="Street address">
-                    </div>
-
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">City *</label>
-                            <input type="text" class="form-input" name="city" required>
+                            <label class="form-label">Contract #</label>
+                            <input name="contract_number" class="form-input" placeholder="G145719">
                         </div>
-                        <div class="form-group" style="display:flex;gap:12px;">
-                            <div style="flex:1">
-                                <label class="form-label">State</label>
-                                <input type="text" class="form-input" name="state" maxlength="2" placeholder="TX">
-                            </div>
-                            <div style="flex:1">
-                                <label class="form-label">Zip</label>
-                                <input type="text" class="form-input" name="zip" maxlength="10" placeholder="77001">
-                            </div>
+                        <div class="form-group">
+                            <label class="form-label">PO #</label>
+                            <input name="po_number" class="form-input" placeholder="PO-001">
                         </div>
                     </div>
-
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">Customer Name</label>
-                            <input type="text" class="form-input" name="customer_name" placeholder="Customer name">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Customer Phone</label>
-                            <input type="tel" class="form-input" name="customer_phone" placeholder="(555) 123-4567">
-                        </div>
-                    </div>
-
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label class="form-label">Fuel Type *</label>
-                            <select class="form-select" name="fuel_type" required>
-                                <option value="">Select fuel type</option>
-                                <option value="Diesel">Diesel</option>
-                                <option value="DEF">DEF</option>
-                                <option value="Both">Both</option>
+                            <label class="form-label">Priority</label>
+                            <select name="priority" class="form-select">
+                                <option value="normal">Normal</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Gallons Requested</label>
-                            <input type="number" class="form-input" name="gallons_requested" min="0" step="0.1" placeholder="0">
+                            <label class="form-label">Date Out</label>
+                            <input name="date_out" type="date" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="section-title">Location</div>
+                    <div class="form-group">
+                        <label class="form-label">Street Address *</label>
+                        <input name="address_street" class="form-input" placeholder="1501 6th Ave" required>
+                    </div>
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label class="form-label">City *</label>
+                            <input name="address_city" class="form-input" placeholder="San Diego" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">State</label>
+                            <input name="address_state" class="form-input" placeholder="CA" maxlength="2">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ZIP</label>
+                            <input name="address_zip" class="form-input" placeholder="92101">
+                        </div>
+                    </div>
+
+                    <div class="section-title">Customer Info</div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Customer Name</label>
+                            <input name="customer_name" class="form-input" placeholder="Company name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Contact Name</label>
+                            <input name="contact_name" class="form-input" placeholder="John Smith">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone</label>
+                        <input name="contact_phone" class="form-input" placeholder="(555) 123-4567">
+                    </div>
+
+                    <div class="section-title">Fuel / Service</div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Fuel Gallons Requested</label>
+                            <input name="fuel_gallons" type="number" step="0.1" class="form-input" placeholder="500">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">DEF Gallons Requested</label>
+                            <input name="def_gallons" type="number" step="0.1" class="form-input" placeholder="0">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Notes</label>
-                        <textarea class="form-input" name="notes" rows="3" placeholder="Any additional details..."></textarea>
+                        <label class="form-label">Instructions / Notes</label>
+                        <textarea name="instructions" class="form-textarea" rows="3" placeholder="Special instructions, gate codes, etc."></textarea>
                     </div>
 
-                    <div class="flex gap-2" style="margin-top:24px;">
-                        <button type="submit" class="btn btn-primary" id="submitBtn">✅ Create Work Order</button>
+                    <div class="flex gap-2" style="margin-top:24px">
+                        <button type="submit" id="submitBtn" class="btn btn-primary">✅ Create Work Order</button>
                         <a href="work-orders.html" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
@@ -111,12 +138,9 @@
     <script src="app.js"></script>
     <script src="mobile.js"></script>
     <script>
-        let currentUser = null;
-
+        let currentUser;
         (async () => {
-            const user = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
-            if (!user) return;
-            currentUser = user;
+            currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
         })();
 
         async function submitJob(e) {
@@ -126,28 +150,29 @@
             btn.textContent = 'Creating...';
 
             try {
-                const form = document.getElementById('jobForm');
-                const fd = new FormData(form);
+                const fd = new FormData(document.getElementById('jobForm'));
                 const job = {
-                    job_name: fd.get('job_name'),
+                    job_site_name: fd.get('job_site_name'),
+                    job_type: fd.get('job_type'),
                     contract_number: fd.get('contract_number') || null,
                     po_number: fd.get('po_number') || null,
-                    address: fd.get('address'),
-                    city: fd.get('city'),
-                    state: fd.get('state') || null,
-                    zip: fd.get('zip') || null,
+                    priority: fd.get('priority'),
+                    date_out: fd.get('date_out') || null,
+                    address_street: fd.get('address_street'),
+                    address_city: fd.get('address_city'),
+                    address_state: fd.get('address_state') || null,
+                    address_zip: fd.get('address_zip') || null,
                     customer_name: fd.get('customer_name') || null,
-                    customer_phone: fd.get('customer_phone') || null,
-                    fuel_type: fd.get('fuel_type'),
-                    gallons_requested: parseFloat(fd.get('gallons_requested')) || null,
-                    notes: fd.get('notes') || null,
+                    contact_name: fd.get('contact_name') || null,
+                    contact_phone: fd.get('contact_phone') || null,
+                    instructions: fd.get('instructions') || null,
                     status: 'pending',
                     created_by: currentUser.id,
+                    billable_services: {
+                        fuelGallons: parseFloat(fd.get('fuel_gallons')) || null,
+                        defGallons: parseFloat(fd.get('def_gallons')) || null
+                    }
                 };
-
-                if (currentUser.vendor_id) {
-                    job.vendor_id = currentUser.vendor_id;
-                }
 
                 const { error } = await GasRush.db().from('jobs').insert(job);
                 if (error) throw error;
@@ -155,7 +180,7 @@
                 window.location.href = 'work-orders.html';
             } catch(err) {
                 console.error('Failed to create job:', err);
-                alert('Failed to create work order: ' + (err.message || err));
+                alert('Failed to create work order: ' + (err.message || JSON.stringify(err)));
                 btn.disabled = false;
                 btn.textContent = '✅ Create Work Order';
             }
