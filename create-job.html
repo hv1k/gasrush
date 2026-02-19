@@ -147,7 +147,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Document Source</label>
-                            <select name="document_source" class="form-select">
+                            <select name="document_source" class="form-select" onchange="toggleGeneratorSection(this.value)">
                                 <option value="">— Select —</option>
                                 <option value="powerplus">PowerPlus</option>
                                 <option value="manual">Manual Entry</option>
@@ -316,8 +316,8 @@
                         </div>
                     </div>
 
-                    <!-- COLLAPSIBLE: Generator Info -->
-                    <div class="collapse-section" id="collapseGenerator">
+                    <!-- COLLAPSIBLE: Generator Info (PowerPlus only) -->
+                    <div class="collapse-section" id="collapseGenerator" style="display:none">
                         <div class="collapse-header" onclick="toggleCollapse('collapseGenerator')">
                             <h3>⚡ Generator Info <span class="collapse-count">gen hours, IDs, equipment details</span></h3>
                             <span class="collapse-arrow">▼</span>
@@ -405,6 +405,10 @@
         // Start with one empty row
         addEquipmentRow();
 
+        function toggleGeneratorSection(val) {
+            document.getElementById('collapseGenerator').style.display = val === 'powerplus' ? '' : 'none';
+        }
+
         function toggleCollapse(id) {
             document.getElementById(id).classList.toggle('open');
         }
@@ -486,7 +490,10 @@
             if (ticketFields.some(f => data[f])) document.getElementById('collapseTicket').classList.add('open');
 
             const genFields = ['old_gen_hour','new_gen_id','new_gen_hour'];
-            if (genFields.some(f => data[f])) document.getElementById('collapseGenerator').classList.add('open');
+            if (genFields.some(f => data[f]) || data.document_source === 'powerplus') {
+                document.getElementById('collapseGenerator').style.display = '';
+                document.getElementById('collapseGenerator').classList.add('open');
+            }
         }
 
         function clearScan() {
