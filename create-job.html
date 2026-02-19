@@ -570,16 +570,25 @@
                     created_by: currentUser.id
                 };
 
-                // Equipment list
-                const equipment = getEquipmentData();
-                if (equipment.length > 0) job.equipment_list = equipment;
-
                 // Assign vendor if selected
                 const vendorId = fd.get('assign_vendor');
                 if (vendorId) job.assigned_vendor = vendorId;
 
-                const { error } = await GasRush.db().from('jobs').insert(job);
+                const { data: inserted, error } = await GasRush.db().from('jobs').insert(job).select('id').single();
                 if (error) throw error;
+
+                // Insert equipment into separate table
+                const equipment = getEquipmentData();
+                if (equipment.length > 0 && inserted?.id) {
+                    const rows = equipment.map(eq => ({
+                        job_id: inserted.id,
+                        quantity: eq.qty,
+                        equipment_number: eq.unit_number,
+                        description: eq.description
+                    }));
+                    const { error: eqErr } = await GasRush.db().from('equipment').insert(rows);
+                    if (eqErr) console.warn('Equipment insert failed:', eqErr);
+                }
 
                 window.location.href = 'work-orders.html';
             } catch(err) {
