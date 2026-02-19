@@ -9,6 +9,32 @@
         .form-card { max-width: 800px; }
         .section-title { font-size:16px; font-weight:700; color:var(--text-primary); margin:24px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
         .section-title:first-child { margin-top:0; }
+
+        .scan-zone {
+            border:2px dashed var(--border); border-radius:var(--radius-lg); padding:32px;
+            text-align:center; margin-bottom:24px; transition:all .2s; cursor:pointer;
+            background:var(--bg-body);
+        }
+        .scan-zone:hover, .scan-zone.dragover { border-color:var(--primary); background:var(--primary-light); }
+        .scan-zone-icon { font-size:40px; margin-bottom:12px; }
+        .scan-zone h3 { font-size:16px; font-weight:600; margin-bottom:4px; }
+        .scan-zone p { font-size:13px; color:var(--text-muted); }
+        .scan-zone input[type="file"] { display:none; }
+
+        .scan-preview { display:flex; gap:16px; align-items:flex-start; margin-bottom:16px; }
+        .scan-preview img { max-width:200px; max-height:200px; border-radius:var(--radius-md); border:1px solid var(--border); object-fit:contain; }
+        .scan-status { font-size:14px; }
+        .scan-status.scanning { color:var(--primary); }
+        .scan-status.done { color:var(--success); }
+        .scan-status.error { color:var(--danger); }
+
+        .scan-or { text-align:center; color:var(--text-muted); font-size:13px; margin:16px 0; display:flex; align-items:center; gap:12px; }
+        .scan-or::before, .scan-or::after { content:''; flex:1; height:1px; background:var(--border); }
+
+        @media(max-width:768px) {
+            .scan-preview { flex-direction:column; }
+            .scan-preview img { max-width:100%; }
+        }
     </style>
 </head>
 <body>
@@ -28,10 +54,35 @@
                 <p class="text-muted">Submit a new fuel delivery or service request</p>
             </div>
 
+            <!-- Scan Section -->
+            <div class="card form-card" style="margin-bottom:20px">
+                <div class="section-title" style="margin-top:0">📸 Scan Work Order</div>
+                <p class="text-muted" style="font-size:14px;margin-bottom:16px">Upload or photograph a work order, invoice, or delivery ticket — AI will read it and fill out the form automatically.</p>
+                
+                <div class="scan-zone" id="scanZone" onclick="document.getElementById('scanInput').click()">
+                    <div class="scan-zone-icon">📄</div>
+                    <h3>Drop image here or tap to upload</h3>
+                    <p>Supports JPG, PNG, PDF screenshots</p>
+                    <input type="file" id="scanInput" accept="image/*" capture="environment" onchange="handleScan(this.files[0])">
+                </div>
+
+                <div id="scanResult" style="display:none">
+                    <div class="scan-preview">
+                        <img id="scanPreview" src="" alt="Scanned document">
+                        <div>
+                            <div class="scan-status" id="scanStatus">Processing...</div>
+                            <button class="btn btn-secondary" style="margin-top:8px" onclick="clearScan()">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scan-or">or fill out manually</div>
+
             <div class="card form-card">
                 <form id="jobForm" onsubmit="submitJob(event)">
 
-                    <div class="section-title">Job Details</div>
+                    <div class="section-title" style="margin-top:0">Job Details</div>
                     <div class="grid-2">
                         <div class="form-group">
                             <label class="form-label">Job Site Name *</label>
@@ -143,6 +194,110 @@
             currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
         })();
 
+        // ── Scan Logic ──
+        const scanZone = document.getElementById('scanZone');
+
+        // Drag & drop
+        scanZone.addEventListener('dragover', (e) => { e.preventDefault(); scanZone.classList.add('dragover'); });
+        scanZone.addEventListener('dragleave', () => scanZone.classList.remove('dragover'));
+        scanZone.addEventListener('drop', (e) => {
+            e.preventDefault(); scanZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) handleScan(e.dataTransfer.files[0]);
+        });
+
+        async function handleScan(file) {
+            if (!file) return;
+
+            // Show preview
+            const result = document.getElementById('scanResult');
+            const preview = document.getElementById('scanPreview');
+            const status = document.getElementById('scanStatus');
+            
+            result.style.display = 'block';
+            scanZone.style.display = 'none';
+            preview.src = URL.createObjectURL(file);
+            status.className = 'scan-status scanning';
+            status.textContent = '🔍 AI is reading your document...';
+
+            try {
+                // Convert to base64
+                const base64 = await fileToBase64(file);
+                
+                const resp = await fetch('/api/scan-document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64, mimeType: file.type || 'image/jpeg' })
+                });
+
+                const json = await resp.json();
+
+                if (json.success && json.data) {
+                    fillForm(json.data);
+                    status.className = 'scan-status done';
+                    status.textContent = '✅ Document scanned — form filled! Review and submit.';
+                } else {
+                    status.className = 'scan-status error';
+                    status.textContent = '⚠️ Could not extract data. Fill manually.';
+                    console.warn('Scan response:', json);
+                }
+            } catch(e) {
+                console.error('Scan failed:', e);
+                status.className = 'scan-status error';
+                status.textContent = '❌ Scan failed: ' + e.message;
+            }
+        }
+
+        function fillForm(data) {
+            const form = document.getElementById('jobForm');
+            const fields = {
+                job_site_name: data.job_site_name,
+                job_type: data.job_type,
+                contract_number: data.contract_number,
+                po_number: data.po_number,
+                priority: data.priority,
+                date_out: data.date_out,
+                address_street: data.address_street,
+                address_city: data.address_city,
+                address_state: data.address_state,
+                address_zip: data.address_zip,
+                customer_name: data.customer_name,
+                contact_name: data.contact_name,
+                contact_phone: data.contact_phone,
+                fuel_gallons: data.fuel_gallons,
+                def_gallons: data.def_gallons,
+                instructions: data.instructions
+            };
+
+            for (const [name, value] of Object.entries(fields)) {
+                if (value === null || value === undefined) continue;
+                const el = form.elements[name];
+                if (el) el.value = value;
+            }
+
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function clearScan() {
+            document.getElementById('scanResult').style.display = 'none';
+            document.getElementById('scanZone').style.display = '';
+            document.getElementById('scanInput').value = '';
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const dataUrl = reader.result;
+                    // Strip "data:image/jpeg;base64," prefix
+                    resolve(dataUrl.split(',')[1]);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ── Submit Logic ──
         async function submitJob(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
