@@ -48,6 +48,11 @@
         }
         .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
 
+        .vendor-assign-box {
+            background:var(--primary-light); border:1px solid var(--primary);
+            border-radius:var(--radius-lg); padding:16px 20px;
+        }
+
         .equip-row {
             display:grid; grid-template-columns:70px 140px 1fr 40px; gap:8px;
             margin-bottom:8px; align-items:center;
@@ -209,6 +214,17 @@
                         <textarea name="instructions" class="form-textarea" rows="3" placeholder="Gate codes, access instructions, safety notes..."></textarea>
                     </div>
 
+                    <!-- Assign Vendor -->
+                    <div class="section-title">Assign Vendor</div>
+                    <div class="vendor-assign-box">
+                        <div class="form-group" style="margin:0">
+                            <select name="assign_vendor" class="form-select" id="vendorSelect" style="font-size:15px;padding:12px 14px;">
+                                <option value="">— None (assign later) —</option>
+                            </select>
+                            <p class="text-muted" style="font-size:12px;margin-top:6px">Select a vendor to immediately assign this work order</p>
+                        </div>
+                    </div>
+
                     <!-- Equipment / Units -->
                     <div class="section-title">Equipment / Units</div>
                     <p class="text-muted" style="font-size:13px;margin-bottom:12px">Add all equipment that needs fueling at this job site</p>
@@ -274,12 +290,6 @@
                                     <label class="form-label">Salesman</label>
                                     <input name="salesman" class="form-input" placeholder="Salesman name">
                                 </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Assign Vendor</label>
-                                <select name="assign_vendor" class="form-select" id="vendorSelect">
-                                    <option value="">— None (assign later) —</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -356,6 +366,20 @@
         let currentUser;
         (async () => {
             currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
+            if (!currentUser) return;
+            // Load vendors into dropdown
+            try {
+                const { data } = await GasRush.db().from('users').select('id,name,email').eq('role', 'vendor');
+                const sel = document.getElementById('vendorSelect');
+                if (data && data.length) {
+                    data.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = v.id;
+                        opt.textContent = v.name + (v.email ? ` (${v.email})` : '');
+                        sel.appendChild(opt);
+                    });
+                }
+            } catch(e) { console.warn('Could not load vendors:', e); }
         })();
 
         // ── Equipment Rows ──
