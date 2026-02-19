@@ -275,7 +275,7 @@ const GasRush = (() => {
 
     return {
         db, getUser, setUser, logout, requireAuth, demoLogin,
-        flagEnabled, toggleTheme, init, renderSidebar,
+        flagEnabled, toggleTheme, init, renderSidebar, NAV_CONFIG,
         get ready() { return _ready; }
     };
 })();
