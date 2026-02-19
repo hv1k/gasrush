@@ -10,31 +10,43 @@
         .section-title { font-size:16px; font-weight:700; color:var(--text-primary); margin:24px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
         .section-title:first-child { margin-top:0; }
 
+        .collapse-section { margin:20px 0; border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+        .collapse-header {
+            display:flex; align-items:center; justify-content:space-between; padding:14px 20px;
+            background:var(--bg-body); cursor:pointer; user-select:none; transition:background .15s;
+        }
+        .collapse-header:hover { background:var(--bg-hover); }
+        .collapse-header h3 { font-size:14px; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
+        .collapse-arrow { transition:transform .2s; font-size:12px; color:var(--text-muted); }
+        .collapse-section.open .collapse-arrow { transform:rotate(180deg); }
+        .collapse-body { display:none; padding:16px 20px; background:var(--bg-card); border-top:1px solid var(--border); }
+        .collapse-section.open .collapse-body { display:block; }
+        .collapse-count { font-size:11px; color:var(--text-muted); font-weight:400; }
+
         .scan-zone {
             border:2px dashed var(--border); border-radius:var(--radius-lg); padding:32px;
-            text-align:center; margin-bottom:24px; transition:all .2s; cursor:pointer;
-            background:var(--bg-body);
+            text-align:center; margin-bottom:24px; transition:all .2s; cursor:pointer; background:var(--bg-body);
         }
         .scan-zone:hover, .scan-zone.dragover { border-color:var(--primary); background:var(--primary-light); }
         .scan-zone-icon { font-size:40px; margin-bottom:12px; }
         .scan-zone h3 { font-size:16px; font-weight:600; margin-bottom:4px; }
         .scan-zone p { font-size:13px; color:var(--text-muted); }
         .scan-zone input[type="file"] { display:none; }
-
         .scan-preview { display:flex; gap:16px; align-items:flex-start; margin-bottom:16px; }
         .scan-preview img { max-width:200px; max-height:200px; border-radius:var(--radius-md); border:1px solid var(--border); object-fit:contain; }
         .scan-status { font-size:14px; }
         .scan-status.scanning { color:var(--primary); }
         .scan-status.done { color:var(--success); }
         .scan-status.error { color:var(--danger); }
-
         .scan-or { text-align:center; color:var(--text-muted); font-size:13px; margin:16px 0; display:flex; align-items:center; gap:12px; }
         .scan-or::before, .scan-or::after { content:''; flex:1; height:1px; background:var(--border); }
 
         @media(max-width:768px) {
             .scan-preview { flex-direction:column; }
             .scan-preview img { max-width:100%; }
+            .grid-2, .grid-3, .grid-4 { grid-template-columns:1fr; }
         }
+        .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
     </style>
 </head>
 <body>
@@ -58,14 +70,12 @@
             <div class="card form-card" style="margin-bottom:20px">
                 <div class="section-title" style="margin-top:0">📸 Scan Work Order</div>
                 <p class="text-muted" style="font-size:14px;margin-bottom:16px">Upload or photograph a work order, invoice, or delivery ticket — AI will read it and fill out the form automatically.</p>
-                
                 <div class="scan-zone" id="scanZone" onclick="document.getElementById('scanInput').click()">
                     <div class="scan-zone-icon">📄</div>
                     <h3>Drop image here or tap to upload</h3>
                     <p>Supports JPG, PNG, PDF screenshots</p>
                     <input type="file" id="scanInput" accept="image/*" capture="environment" onchange="handleScan(this.files[0])">
                 </div>
-
                 <div id="scanResult" style="display:none">
                     <div class="scan-preview">
                         <img id="scanPreview" src="" alt="Scanned document">
@@ -79,9 +89,11 @@
 
             <div class="scan-or">or fill out manually</div>
 
+            <!-- Form -->
             <div class="card form-card">
                 <form id="jobForm" onsubmit="submitJob(event)">
 
+                    <!-- CORE: Always visible -->
                     <div class="section-title" style="margin-top:0">Job Details</div>
                     <div class="grid-2">
                         <div class="form-group">
@@ -89,7 +101,7 @@
                             <input name="job_site_name" class="form-input" placeholder="e.g. Kindred Apartments" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Job Type</label>
+                            <label class="form-label">Job Type *</label>
                             <select name="job_type" class="form-select">
                                 <option value="fuel-delivery">Fuel Delivery</option>
                                 <option value="service">Generator Service</option>
@@ -100,12 +112,12 @@
                     </div>
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">Contract #</label>
-                            <input name="contract_number" class="form-input" placeholder="G145719">
+                            <label class="form-label">Contract # *</label>
+                            <input name="contract_number" class="form-input" placeholder="G145719" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">PO #</label>
-                            <input name="po_number" class="form-input" placeholder="PO-001">
+                            <label class="form-label">P.O. # *</label>
+                            <input name="po_number" class="form-input" placeholder="PO-001" required>
                         </div>
                     </div>
                     <div class="grid-2">
@@ -118,8 +130,14 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Date Out</label>
-                            <input name="date_out" type="date" class="form-input">
+                            <label class="form-label">Document Source</label>
+                            <select name="document_source" class="form-select">
+                                <option value="">— Select —</option>
+                                <option value="powerplus">PowerPlus</option>
+                                <option value="manual">Manual Entry</option>
+                                <option value="scan">Scanned Document</option>
+                                <option value="other">Other</option>
+                            </select>
                         </div>
                     </div>
 
@@ -135,7 +153,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">State</label>
-                            <input name="address_state" class="form-input" placeholder="CA" maxlength="2">
+                            <input name="address_state" class="form-input" placeholder="CA" maxlength="2" style="text-transform:uppercase">
                         </div>
                         <div class="form-group">
                             <label class="form-label">ZIP</label>
@@ -143,37 +161,154 @@
                         </div>
                     </div>
 
-                    <div class="section-title">Customer Info</div>
+                    <div class="section-title">Customer</div>
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">Customer Name</label>
-                            <input name="customer_name" class="form-input" placeholder="Company name">
+                            <label class="form-label">Customer Name *</label>
+                            <input name="customer_name" class="form-input" placeholder="VCC, LLC" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Contact Name</label>
-                            <input name="contact_name" class="form-input" placeholder="John Smith">
+                            <label class="form-label">Ordered By</label>
+                            <input name="contact_name" class="form-input" placeholder="Contact name">
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Contact Phone</label>
-                        <input name="contact_phone" class="form-input" placeholder="(555) 123-4567">
+                        <input name="contact_phone" class="form-input" placeholder="(626) 616-3507" type="tel">
                     </div>
 
                     <div class="section-title">Fuel / Service</div>
                     <div class="grid-2">
                         <div class="form-group">
-                            <label class="form-label">Fuel Gallons Requested</label>
+                            <label class="form-label">Fuel Gallons</label>
                             <input name="fuel_gallons" type="number" step="0.1" class="form-input" placeholder="500">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">DEF Gallons Requested</label>
+                            <label class="form-label">DEF Gallons</label>
                             <input name="def_gallons" type="number" step="0.1" class="form-input" placeholder="0">
                         </div>
                     </div>
-
                     <div class="form-group">
-                        <label class="form-label">Instructions / Notes</label>
-                        <textarea name="instructions" class="form-textarea" rows="3" placeholder="Special instructions, gate codes, etc."></textarea>
+                        <label class="form-label">Special Instructions</label>
+                        <textarea name="instructions" class="form-textarea" rows="3" placeholder="Gate codes, access instructions, safety notes..."></textarea>
+                    </div>
+
+                    <!-- COLLAPSIBLE: Additional Details -->
+                    <div class="collapse-section" id="collapseAdditional">
+                        <div class="collapse-header" onclick="toggleCollapse('collapseAdditional')">
+                            <h3>📋 Additional Details <span class="collapse-count">IDs, dates, vendor info</span></h3>
+                            <span class="collapse-arrow">▼</span>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="grid-4">
+                                <div class="form-group">
+                                    <label class="form-label">Order ID</label>
+                                    <input name="order_id" class="form-input" placeholder="Order ID">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Job Number</label>
+                                    <input name="job_number" class="form-input" placeholder="Job #">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Customer #</label>
+                                    <input name="customer_number" class="form-input" placeholder="Cust #">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Vendor #</label>
+                                    <input name="vendor_number" class="form-input" placeholder="Vendor #">
+                                </div>
+                            </div>
+                            <div class="grid-4">
+                                <div class="form-group">
+                                    <label class="form-label">Date Out</label>
+                                    <input name="date_out" type="date" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Time Out</label>
+                                    <input name="time_out" type="time" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Est. Return</label>
+                                    <input name="est_return" type="date" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Time Return</label>
+                                    <input name="time_return" type="time" class="form-input">
+                                </div>
+                            </div>
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Rental Company / PC#</label>
+                                    <input name="rental_company" class="form-input" placeholder="Company or PC#">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Salesman</label>
+                                    <input name="salesman" class="form-input" placeholder="Salesman name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Assign Vendor</label>
+                                <select name="assign_vendor" class="form-select" id="vendorSelect">
+                                    <option value="">— None (assign later) —</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLLAPSIBLE: Field Ticket -->
+                    <div class="collapse-section" id="collapseTicket">
+                        <div class="collapse-header" onclick="toggleCollapse('collapseTicket')">
+                            <h3>🎫 Field Ticket <span class="collapse-count">ticket ID, type, area, work performed</span></h3>
+                            <span class="collapse-arrow">▼</span>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="grid-4">
+                                <div class="form-group">
+                                    <label class="form-label">Field Ticket ID</label>
+                                    <input name="field_ticket_id" class="form-input" placeholder="e.g. 1409099">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Ticket Type</label>
+                                    <input name="ticket_type" class="form-input" placeholder="e.g. SWAP">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Area</label>
+                                    <input name="area" class="form-input" placeholder="e.g. SAN">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Ticket Status</label>
+                                    <input name="ticket_status" class="form-input" placeholder="e.g. TENTATIVE">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Work Performed</label>
+                                <textarea name="work_performed" class="form-textarea" rows="2" placeholder="Describe work performed..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLLAPSIBLE: Generator Info -->
+                    <div class="collapse-section" id="collapseGenerator">
+                        <div class="collapse-header" onclick="toggleCollapse('collapseGenerator')">
+                            <h3>⚡ Generator Info <span class="collapse-count">gen hours, IDs, equipment details</span></h3>
+                            <span class="collapse-arrow">▼</span>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="grid-3">
+                                <div class="form-group">
+                                    <label class="form-label">Old Gen Hour</label>
+                                    <input name="old_gen_hour" class="form-input" placeholder="Hour reading">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">New Gen ID</label>
+                                    <input name="new_gen_id" class="form-input" placeholder="Generator ID">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">New Gen Hour</label>
+                                    <input name="new_gen_hour" class="form-input" placeholder="Hour reading">
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex gap-2" style="margin-top:24px">
@@ -194,10 +329,12 @@
             currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
         })();
 
+        function toggleCollapse(id) {
+            document.getElementById(id).classList.toggle('open');
+        }
+
         // ── Scan Logic ──
         const scanZone = document.getElementById('scanZone');
-
-        // Drag & drop
         scanZone.addEventListener('dragover', (e) => { e.preventDefault(); scanZone.classList.add('dragover'); });
         scanZone.addEventListener('dragleave', () => scanZone.classList.remove('dragover'));
         scanZone.addEventListener('drop', (e) => {
@@ -207,12 +344,10 @@
 
         async function handleScan(file) {
             if (!file) return;
-
-            // Show preview
             const result = document.getElementById('scanResult');
             const preview = document.getElementById('scanPreview');
             const status = document.getElementById('scanStatus');
-            
+
             result.style.display = 'block';
             scanZone.style.display = 'none';
             preview.src = URL.createObjectURL(file);
@@ -220,25 +355,23 @@
             status.textContent = '🔍 AI is reading your document...';
 
             try {
-                // Convert to base64
                 const base64 = await fileToBase64(file);
-                
                 const resp = await fetch('/api/scan-document', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: base64, mimeType: file.type || 'image/jpeg' })
                 });
-
                 const json = await resp.json();
 
                 if (json.success && json.data) {
                     fillForm(json.data);
+                    // Auto-open collapsible sections that have data
+                    autoOpenSections(json.data);
                     status.className = 'scan-status done';
                     status.textContent = '✅ Document scanned — form filled! Review and submit.';
                 } else {
                     status.className = 'scan-status error';
                     status.textContent = '⚠️ Could not extract data. Fill manually.';
-                    console.warn('Scan response:', json);
                 }
             } catch(e) {
                 console.error('Scan failed:', e);
@@ -249,33 +382,24 @@
 
         function fillForm(data) {
             const form = document.getElementById('jobForm');
-            const fields = {
-                job_site_name: data.job_site_name,
-                job_type: data.job_type,
-                contract_number: data.contract_number,
-                po_number: data.po_number,
-                priority: data.priority,
-                date_out: data.date_out,
-                address_street: data.address_street,
-                address_city: data.address_city,
-                address_state: data.address_state,
-                address_zip: data.address_zip,
-                customer_name: data.customer_name,
-                contact_name: data.contact_name,
-                contact_phone: data.contact_phone,
-                fuel_gallons: data.fuel_gallons,
-                def_gallons: data.def_gallons,
-                instructions: data.instructions
-            };
-
-            for (const [name, value] of Object.entries(fields)) {
+            for (const [name, value] of Object.entries(data)) {
                 if (value === null || value === undefined) continue;
                 const el = form.elements[name];
                 if (el) el.value = value;
             }
-
-            // Scroll to form
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function autoOpenSections(data) {
+            // Open Additional Details if any of its fields have data
+            const additionalFields = ['order_id','job_number','customer_number','vendor_number','date_out','time_out','est_return','time_return','rental_company','salesman'];
+            if (additionalFields.some(f => data[f])) document.getElementById('collapseAdditional').classList.add('open');
+
+            const ticketFields = ['field_ticket_id','ticket_type','area','ticket_status','work_performed'];
+            if (ticketFields.some(f => data[f])) document.getElementById('collapseTicket').classList.add('open');
+
+            const genFields = ['old_gen_hour','new_gen_id','new_gen_hour'];
+            if (genFields.some(f => data[f])) document.getElementById('collapseGenerator').classList.add('open');
         }
 
         function clearScan() {
@@ -287,17 +411,13 @@
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = () => {
-                    const dataUrl = reader.result;
-                    // Strip "data:image/jpeg;base64," prefix
-                    resolve(dataUrl.split(',')[1]);
-                };
+                reader.onload = () => resolve(reader.result.split(',')[1]);
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
         }
 
-        // ── Submit Logic ──
+        // ── Submit ──
         async function submitJob(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
@@ -307,34 +427,65 @@
             try {
                 const fd = new FormData(document.getElementById('jobForm'));
                 const job = {
+                    // Core
                     job_site_name: fd.get('job_site_name'),
                     job_type: fd.get('job_type'),
-                    contract_number: fd.get('contract_number') || null,
-                    po_number: fd.get('po_number') || null,
+                    contract_number: fd.get('contract_number'),
+                    po_number: fd.get('po_number'),
                     priority: fd.get('priority'),
-                    date_out: fd.get('date_out') || null,
+                    document_source: fd.get('document_source') || null,
+                    // Location
                     address_street: fd.get('address_street'),
                     address_city: fd.get('address_city'),
                     address_state: fd.get('address_state') || null,
                     address_zip: fd.get('address_zip') || null,
-                    customer_name: fd.get('customer_name') || null,
+                    // Customer
+                    customer_name: fd.get('customer_name'),
                     contact_name: fd.get('contact_name') || null,
                     contact_phone: fd.get('contact_phone') || null,
+                    // Additional
+                    order_id: fd.get('order_id') || null,
+                    job_number: fd.get('job_number') || null,
+                    customer_number: fd.get('customer_number') || null,
+                    vendor_number: fd.get('vendor_number') || null,
+                    date_out: fd.get('date_out') || null,
+                    time_out: fd.get('time_out') || null,
+                    est_return: fd.get('est_return') || null,
+                    time_return: fd.get('time_return') || null,
+                    rental_company: fd.get('rental_company') || null,
+                    salesman: fd.get('salesman') || null,
+                    // Ticket
+                    field_ticket_id: fd.get('field_ticket_id') || null,
+                    ticket_type: fd.get('ticket_type') || null,
+                    area: fd.get('area') || null,
+                    ticket_status: fd.get('ticket_status') || null,
+                    work_performed: fd.get('work_performed') || null,
+                    // Generator
+                    old_gen_hour: fd.get('old_gen_hour') || null,
+                    new_gen_id: fd.get('new_gen_id') || null,
+                    new_gen_hour: fd.get('new_gen_hour') || null,
+                    // Instructions
                     instructions: fd.get('instructions') || null,
-                    status: 'pending',
-                    created_by: currentUser.id,
+                    // Fuel
                     billable_services: {
                         fuelGallons: parseFloat(fd.get('fuel_gallons')) || null,
                         defGallons: parseFloat(fd.get('def_gallons')) || null
-                    }
+                    },
+                    // Meta
+                    status: 'pending',
+                    created_by: currentUser.id
                 };
+
+                // Assign vendor if selected
+                const vendorId = fd.get('assign_vendor');
+                if (vendorId) job.assigned_vendor = vendorId;
 
                 const { error } = await GasRush.db().from('jobs').insert(job);
                 if (error) throw error;
 
                 window.location.href = 'work-orders.html';
             } catch(err) {
-                console.error('Failed to create job:', err);
+                console.error('Failed:', err);
                 alert('Failed to create work order: ' + (err.message || JSON.stringify(err)));
                 btn.disabled = false;
                 btn.textContent = '✅ Create Work Order';

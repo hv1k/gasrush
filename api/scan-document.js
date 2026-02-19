@@ -44,7 +44,7 @@ export default async function handler(req, res) {
   "contract_number": "contract or ticket number",
   "po_number": "PO number",
   "priority": "normal|high|urgent",
-  "date_out": "YYYY-MM-DD",
+  "document_source": "powerplus|manual|scan|other",
   "address_street": "street address",
   "address_city": "city",
   "address_state": "two-letter state code",
@@ -54,7 +54,25 @@ export default async function handler(req, res) {
   "contact_phone": "phone number",
   "fuel_gallons": number or null,
   "def_gallons": number or null,
-  "instructions": "any notes or special instructions"
+  "instructions": "any notes or special instructions",
+  "order_id": "order ID",
+  "job_number": "job number",
+  "customer_number": "customer number",
+  "vendor_number": "vendor number",
+  "date_out": "YYYY-MM-DD",
+  "time_out": "HH:MM",
+  "est_return": "YYYY-MM-DD",
+  "time_return": "HH:MM",
+  "rental_company": "rental company or PC number",
+  "salesman": "salesman name",
+  "field_ticket_id": "field ticket ID number",
+  "ticket_type": "ticket type e.g. SWAP, DELIVERY",
+  "area": "area code e.g. SAN, LA",
+  "ticket_status": "e.g. TENTATIVE, CONFIRMED",
+  "work_performed": "description of work performed",
+  "old_gen_hour": "old generator hour reading",
+  "new_gen_id": "new generator ID",
+  "new_gen_hour": "new generator hour reading"
 }
 
 Return ONLY valid JSON, no markdown, no explanation.`
