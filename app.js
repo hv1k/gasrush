@@ -83,7 +83,7 @@ const GasRush = (() => {
         try {
             const { data } = await db().from('feature_flags').select('*').eq('role', user.role);
             if (data) {
-                data.forEach(f => { _flags[f.flag_key] = f.enabled; });
+                data.forEach(f => { _flags[f.feature_key] = f.enabled; });
             }
         } catch(e) {
             console.warn('Feature flags unavailable:', e.message);
@@ -116,21 +116,21 @@ const GasRush = (() => {
         rental: {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'rental-dashboard.html' },
-                { label: 'Create Work Order', icon: '➕', href: 'create-job.html', flag: 'page.create-job' },
-                { label: 'Work Orders', icon: '📋', href: 'work-orders.html', flag: 'page.work-orders' }
+                { label: 'Create Work Order', icon: '➕', href: 'create-job.html', flag: 'page.create_job' },
+                { label: 'Work Orders', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' }
             ],
             management: [
                 { label: 'Invoices', icon: '📄', href: 'invoices.html', flag: 'page.invoices' },
                 { label: 'Contracts', icon: '📝', href: 'contracts.html', flag: 'page.contracts' },
                 { label: 'Equipment', icon: '⚙️', href: 'equipment.html', flag: 'page.equipment' },
-                { label: 'Vendor Comparison', icon: '📊', href: 'vendor-comparison.html', flag: 'page.vendor-comparison' },
-                { label: 'Recurring Jobs', icon: '🔁', href: 'recurring-jobs.html', flag: 'page.recurring-jobs' }
+                { label: 'Vendor Comparison', icon: '📊', href: 'vendor-comparison.html', flag: 'page.vendor_comparison' },
+                { label: 'Recurring Jobs', icon: '🔁', href: 'recurring-jobs.html', flag: 'page.recurring_jobs' }
             ],
             tools: [
                 { label: 'Reports', icon: '📈', href: 'reports.html', flag: 'page.reports' },
-                { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily-log' },
+                { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily_log' },
                 { label: 'Documents', icon: '📁', href: 'documents.html', flag: 'page.documents' },
-                { label: 'Bulk Import', icon: '📥', href: 'bulk-import.html', flag: 'page.bulk-import' }
+                { label: 'Bulk Import', icon: '📥', href: 'bulk-import.html', flag: 'page.bulk_import' }
             ],
             settings: [
                 { label: 'Alerts', icon: '🔔', href: 'alerts.html', flag: 'page.alerts' },
@@ -140,7 +140,7 @@ const GasRush = (() => {
         vendor: {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'vendor-dashboard.html' },
-                { label: 'Jobs', icon: '📋', href: 'work-orders.html', flag: 'page.work-orders' }
+                { label: 'Jobs', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' }
             ],
             management: [
                 { label: 'Invoices', icon: '📄', href: 'invoices.html', flag: 'page.invoices' },
@@ -148,12 +148,12 @@ const GasRush = (() => {
                 { label: 'Equipment', icon: '⚙️', href: 'equipment.html', flag: 'page.equipment' }
             ],
             team: [
-                { label: 'Field Workers', icon: '👷', href: 'field-workers.html', flag: 'page.field-workers' },
+                { label: 'Field Workers', icon: '👷', href: 'field-workers.html', flag: 'page.field_workers' },
                 { label: 'Chat', icon: '💬', href: 'chat.html', flag: 'page.chat' }
             ],
             tools: [
                 { label: 'Reports', icon: '📈', href: 'reports.html', flag: 'page.reports' },
-                { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily-log' },
+                { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily_log' },
                 { label: 'Route Planning', icon: '🗺️', href: 'routes.html', flag: 'page.routes' },
                 { label: 'Documents', icon: '📁', href: 'documents.html', flag: 'page.documents' }
             ],
@@ -165,11 +165,11 @@ const GasRush = (() => {
         fieldworker: {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'field-worker.html' },
-                { label: 'My Jobs', icon: '📋', href: 'work-orders.html', flag: 'page.work-orders' }
+                { label: 'My Jobs', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' }
             ],
             tools: [
-                { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily-log' },
-                { label: 'Time Tracking', icon: '⏱️', href: 'time-tracking.html', flag: 'page.time-tracking' },
+                { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily_log' },
+                { label: 'Time Tracking', icon: '⏱️', href: 'time-tracking.html', flag: 'page.time_tracking' },
                 { label: 'Chat', icon: '💬', href: 'chat.html', flag: 'page.chat' }
             ],
             settings: [
