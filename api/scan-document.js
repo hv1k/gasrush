@@ -72,7 +72,8 @@ export default async function handler(req, res) {
   "work_performed": "description of work performed",
   "old_gen_hour": "old generator hour reading",
   "new_gen_id": "new generator ID",
-  "new_gen_hour": "new generator hour reading"
+  "new_gen_hour": "new generator hour reading",
+  "equipment": [{"qty": 1, "unit_number": "unit ID", "description": "equipment description"}]
 }
 
 Return ONLY valid JSON, no markdown, no explanation.`

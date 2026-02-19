@@ -47,6 +47,22 @@
             .grid-2, .grid-3, .grid-4 { grid-template-columns:1fr; }
         }
         .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+
+        .equip-row {
+            display:grid; grid-template-columns:70px 140px 1fr 40px; gap:8px;
+            margin-bottom:8px; align-items:center;
+        }
+        .equip-row input { padding:10px 12px; }
+        .equip-remove {
+            width:36px; height:36px; border-radius:var(--radius-sm); border:1px solid var(--danger);
+            background:transparent; color:var(--danger); font-size:16px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; transition:all .15s;
+        }
+        .equip-remove:hover { background:var(--danger); color:white; }
+
+        @media(max-width:600px) {
+            .equip-row { grid-template-columns:50px 100px 1fr 36px; }
+        }
     </style>
 </head>
 <body>
@@ -193,6 +209,19 @@
                         <textarea name="instructions" class="form-textarea" rows="3" placeholder="Gate codes, access instructions, safety notes..."></textarea>
                     </div>
 
+                    <!-- Equipment / Units -->
+                    <div class="section-title">Equipment / Units</div>
+                    <p class="text-muted" style="font-size:13px;margin-bottom:12px">Add all equipment that needs fueling at this job site</p>
+                    <div style="display:grid;grid-template-columns:70px 140px 1fr 40px;gap:8px;margin-bottom:8px;padding:0 4px">
+                        <span class="form-label" style="margin:0">QTY</span>
+                        <span class="form-label" style="margin:0">UNIT #</span>
+                        <span class="form-label" style="margin:0">DESCRIPTION</span>
+                        <span></span>
+                    </div>
+                    <div id="equipmentList"></div>
+                    <button type="button" class="btn btn-secondary" style="width:100%;margin:12px 0;border-style:dashed" onclick="addEquipmentRow()">+ Add Equipment</button>
+                    <div class="text-muted" style="font-size:13px" id="equipCount">0 units added</div>
+
                     <!-- COLLAPSIBLE: Additional Details -->
                     <div class="collapse-section" id="collapseAdditional">
                         <div class="collapse-header" onclick="toggleCollapse('collapseAdditional')">
@@ -329,6 +358,53 @@
             currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
         })();
 
+        // ── Equipment Rows ──
+        let equipRows = [];
+
+        function addEquipmentRow(qty='', unit='', desc='') {
+            const id = Date.now();
+            equipRows.push(id);
+            const list = document.getElementById('equipmentList');
+            const row = document.createElement('div');
+            row.className = 'equip-row';
+            row.id = 'equip-' + id;
+            row.innerHTML = `
+                <input type="number" class="form-input equip-qty" value="${qty}" placeholder="1" min="1">
+                <input type="text" class="form-input equip-unit" value="${unit}" placeholder="Unit #">
+                <input type="text" class="form-input equip-desc" value="${desc}" placeholder="e.g. 20KW Diesel Generator">
+                <button type="button" class="equip-remove" onclick="removeEquipmentRow(${id})">✕</button>
+            `;
+            list.appendChild(row);
+            updateEquipCount();
+        }
+
+        function removeEquipmentRow(id) {
+            const row = document.getElementById('equip-' + id);
+            if (row) row.remove();
+            equipRows = equipRows.filter(r => r !== id);
+            updateEquipCount();
+        }
+
+        function updateEquipCount() {
+            const count = document.querySelectorAll('.equip-row').length;
+            document.getElementById('equipCount').textContent = count + ' unit' + (count !== 1 ? 's' : '') + ' added';
+        }
+
+        function getEquipmentData() {
+            const rows = document.querySelectorAll('.equip-row');
+            const items = [];
+            rows.forEach(row => {
+                const qty = row.querySelector('.equip-qty').value || '1';
+                const unit = row.querySelector('.equip-unit').value || '';
+                const desc = row.querySelector('.equip-desc').value || '';
+                if (unit || desc) items.push({ qty: parseInt(qty) || 1, unit_number: unit, description: desc });
+            });
+            return items;
+        }
+
+        // Start with one empty row
+        addEquipmentRow();
+
         function toggleCollapse(id) {
             document.getElementById(id).classList.toggle('open');
         }
@@ -383,10 +459,21 @@
         function fillForm(data) {
             const form = document.getElementById('jobForm');
             for (const [name, value] of Object.entries(data)) {
-                if (value === null || value === undefined) continue;
+                if (value === null || value === undefined || name === 'equipment') continue;
                 const el = form.elements[name];
                 if (el) el.value = value;
             }
+
+            // Fill equipment rows
+            if (data.equipment && Array.isArray(data.equipment) && data.equipment.length > 0) {
+                // Clear existing rows
+                document.getElementById('equipmentList').innerHTML = '';
+                equipRows = [];
+                for (const eq of data.equipment) {
+                    addEquipmentRow(eq.qty || 1, eq.unit_number || '', eq.description || '');
+                }
+            }
+
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
@@ -475,6 +562,10 @@
                     status: 'pending',
                     created_by: currentUser.id
                 };
+
+                // Equipment list
+                const equipment = getEquipmentData();
+                if (equipment.length > 0) job.equipment_list = equipment;
 
                 // Assign vendor if selected
                 const vendorId = fd.get('assign_vendor');
