@@ -6,17 +6,79 @@
     <title>GasRush — Feature Flags</title>
     <link rel="stylesheet" href="theme.css">
     <style>
-        .toggle-switch { position:relative; width:50px; height:26px; cursor:pointer; }
-        .toggle-switch input { opacity:0; width:0; height:0; }
-        .toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:13px; transition:.3s; }
-        .toggle-slider::before { content:''; position:absolute; height:20px; width:20px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; }
-        .toggle-switch input:checked + .toggle-slider { background:var(--success); }
-        .toggle-switch input:checked + .toggle-slider::before { transform:translateX(24px); }
-        .flag-card { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); }
-        .flag-card:last-child { border-bottom:none; }
-        .flag-name { font-weight:600; }
-        .flag-key { font-size:0.85em; color:var(--text-secondary); font-family:monospace; }
-        .group-title { padding:12px 20px; font-weight:700; text-transform:uppercase; font-size:0.8em; letter-spacing:0.05em; color:var(--text-secondary); background:var(--bg-secondary); }
+        .role-tabs { display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+        .role-tab {
+            padding:10px 20px; border-radius:var(--radius-md); font-size:14px; font-weight:600;
+            font-family:var(--font); cursor:pointer; border:1px solid var(--border);
+            background:var(--bg-card); color:var(--text-secondary); transition:all .15s;
+        }
+        .role-tab:hover { background:var(--bg-hover); color:var(--text-primary); }
+        .role-tab.active { background:var(--primary); color:white; border-color:var(--primary); }
+        .role-tab .count { 
+            display:inline-flex; align-items:center; justify-content:center;
+            min-width:20px; height:20px; padding:0 6px; border-radius:10px;
+            font-size:11px; margin-left:6px; background:rgba(255,255,255,0.2); 
+        }
+        .role-tab:not(.active) .count { background:var(--bg-body); }
+
+        .category-section { margin-bottom:20px; }
+        .category-header {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:12px 20px; font-weight:700; font-size:13px; text-transform:uppercase;
+            letter-spacing:0.04em; color:var(--text-muted); border-bottom:1px solid var(--border);
+            background:var(--bg-body); border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+        }
+        .category-toggle-all {
+            font-size:12px; font-weight:600; color:var(--primary); cursor:pointer;
+            text-transform:none; letter-spacing:0; font-family:var(--font);
+            background:none; border:none; padding:4px 8px;
+        }
+        .category-toggle-all:hover { text-decoration:underline; }
+
+        .flag-list { background:var(--bg-card); border:1px solid var(--border); border-radius:0 0 var(--radius-lg) var(--radius-lg); border-top:none; }
+        .flag-row {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:14px 20px; border-bottom:1px solid var(--border-light);
+            transition:background .1s;
+        }
+        .flag-row:last-child { border-bottom:none; }
+        .flag-row:hover { background:var(--bg-hover); }
+        .flag-info { flex:1; min-width:0; }
+        .flag-label { font-weight:600; font-size:14px; color:var(--text-primary); }
+        .flag-key { font-size:12px; color:var(--text-muted); font-family:monospace; margin-top:2px; }
+        .flag-desc { font-size:13px; color:var(--text-secondary); margin-top:2px; }
+
+        .toggle { position:relative; width:44px; height:24px; flex-shrink:0; cursor:pointer; }
+        .toggle input { opacity:0; width:0; height:0; position:absolute; }
+        .toggle-track {
+            position:absolute; inset:0; background:var(--border); border-radius:12px;
+            transition:background .2s;
+        }
+        .toggle-track::after {
+            content:''; position:absolute; width:18px; height:18px; left:3px; top:3px;
+            background:white; border-radius:50%; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+        }
+        .toggle input:checked + .toggle-track { background:var(--success); }
+        .toggle input:checked + .toggle-track::after { transform:translateX(20px); }
+
+        .search-bar { margin-bottom:20px; }
+        .search-bar input { max-width:360px; }
+
+        .bulk-actions { display:flex; gap:8px; margin-bottom:16px; }
+
+        .stats-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+        .mini-stat { 
+            background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md);
+            padding:12px 20px; display:flex; align-items:center; gap:10px;
+        }
+        .mini-stat-value { font-size:20px; font-weight:700; color:var(--text-primary); }
+        .mini-stat-label { font-size:13px; color:var(--text-secondary); }
+
+        @media (max-width:768px) {
+            .role-tabs { gap:6px; }
+            .role-tab { padding:8px 14px; font-size:13px; }
+            .flag-row { padding:12px 14px; }
+        }
     </style>
 </head>
 <body>
@@ -31,16 +93,26 @@
         </aside>
 
         <main class="main-content">
-            <div class="page-header">
+            <div class="page-header flex justify-between items-center">
                 <div>
                     <h1>Feature Flags</h1>
-                    <p class="text-secondary">Toggle features by role</p>
+                    <p class="text-muted">Control which features each role can access</p>
                 </div>
             </div>
 
-            <div id="flagsContainer">
-                <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
+            <!-- Stats -->
+            <div class="stats-row" id="statsRow"></div>
+
+            <!-- Role Tabs -->
+            <div class="role-tabs" id="roleTabs"></div>
+
+            <!-- Search -->
+            <div class="search-bar">
+                <input type="text" class="form-input" placeholder="Search flags..." id="searchInput" oninput="renderFlags()">
             </div>
+
+            <!-- Flags -->
+            <div id="flagsContainer"></div>
         </main>
     </div>
 
@@ -48,6 +120,9 @@
     <script src="app.js"></script>
     <script src="mobile.js"></script>
     <script>
+        let allFlags = [];
+        let activeRole = 'rental';
+
         (async () => {
             const user = await GasRush.init({ roles: ['admin'] });
             if (!user) return;
@@ -55,44 +130,135 @@
         })();
 
         async function loadFlags() {
-            const container = document.getElementById('flagsContainer');
             try {
-                const { data, error } = await GasRush.db().from('feature_flags').select('*').order('role').order('label');
+                const { data, error } = await GasRush.db().from('feature_flags').select('*').order('category').order('label');
                 if (error) throw error;
-                if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚩</div><h3>No flags configured</h3><p class="text-secondary">Feature flags will appear here once added to the database.</p></div>';
-                    return;
-                }
-                const grouped = {};
-                for (const f of data) {
-                    const role = f.role || 'general';
-                    if (!grouped[role]) grouped[role] = [];
-                    grouped[role].push(f);
-                }
-                let html = '';
-                for (const [role, flags] of Object.entries(grouped)) {
-                    html += `<div class="card" style="margin-bottom:16px;"><div class="group-title">${esc(role)}</div>`;
-                    for (const f of flags) {
-                        html += `<div class="flag-card">
-                            <div><div class="flag-name">${esc(f.label)}</div><div class="flag-key">${esc(f.feature_key)}</div></div>
-                            <label class="toggle-switch"><input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFlag('${f.id}', this.checked)"><span class="toggle-slider"></span></label>
-                        </div>`;
-                    }
-                    html += '</div>';
-                }
-                container.innerHTML = html;
+                allFlags = data || [];
+                renderTabs();
+                renderStats();
+                renderFlags();
             } catch(e) {
                 console.error(e);
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚩</div><h3>No flags configured</h3><p class="text-secondary">Feature flags will appear here once added to the database.</p></div>';
+                document.getElementById('flagsContainer').innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Failed to load flags</h3><p>' + esc(e.message) + '</p></div>';
             }
+        }
+
+        function renderTabs() {
+            const roles = [...new Set(allFlags.map(f => f.role))].sort();
+            const tabs = document.getElementById('roleTabs');
+            tabs.innerHTML = roles.map(role => {
+                const count = allFlags.filter(f => f.role === role).length;
+                const active = role === activeRole ? ' active' : '';
+                const label = role.charAt(0).toUpperCase() + role.slice(1);
+                return `<button class="role-tab${active}" onclick="switchRole('${role}')">${label}<span class="count">${count}</span></button>`;
+            }).join('');
+        }
+
+        function renderStats() {
+            const roleFlags = allFlags.filter(f => f.role === activeRole);
+            const on = roleFlags.filter(f => f.enabled).length;
+            const off = roleFlags.length - on;
+            document.getElementById('statsRow').innerHTML = `
+                <div class="mini-stat"><span class="mini-stat-value">${roleFlags.length}</span><span class="mini-stat-label">Total Flags</span></div>
+                <div class="mini-stat"><span class="mini-stat-value" style="color:var(--success)">${on}</span><span class="mini-stat-label">Enabled</span></div>
+                <div class="mini-stat"><span class="mini-stat-value" style="color:var(--text-muted)">${off}</span><span class="mini-stat-label">Disabled</span></div>
+            `;
+        }
+
+        function renderFlags() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const container = document.getElementById('flagsContainer');
+            
+            let flags = allFlags.filter(f => f.role === activeRole);
+            if (search) {
+                flags = flags.filter(f => 
+                    (f.label || '').toLowerCase().includes(search) ||
+                    (f.feature_key || '').toLowerCase().includes(search) ||
+                    (f.description || '').toLowerCase().includes(search)
+                );
+            }
+
+            // Group by category
+            const grouped = {};
+            for (const f of flags) {
+                const cat = f.category || 'other';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(f);
+            }
+
+            if (Object.keys(grouped).length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>No flags found</h3></div>';
+                return;
+            }
+
+            const categoryLabels = {
+                pages: '📄 Pages',
+                features: '⚡ Features',
+                analytics: '📊 Analytics',
+                other: '🔧 Other'
+            };
+
+            let html = '';
+            for (const [cat, flags] of Object.entries(grouped)) {
+                const allOn = flags.every(f => f.enabled);
+                const toggleLabel = allOn ? 'Disable all' : 'Enable all';
+                html += `<div class="category-section">
+                    <div class="category-header">
+                        <span>${categoryLabels[cat] || cat.toUpperCase()}</span>
+                        <button class="category-toggle-all" onclick="toggleCategory('${cat}', ${!allOn})">${toggleLabel}</button>
+                    </div>
+                    <div class="flag-list">`;
+                
+                for (const f of flags) {
+                    html += `<div class="flag-row">
+                        <div class="flag-info">
+                            <div class="flag-label">${esc(f.label)}</div>
+                            <div class="flag-key">${esc(f.feature_key)}</div>
+                            ${f.description ? `<div class="flag-desc">${esc(f.description)}</div>` : ''}
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFlag('${f.id}', this.checked)">
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>`;
+                }
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function switchRole(role) {
+            activeRole = role;
+            renderTabs();
+            renderStats();
+            renderFlags();
         }
 
         async function toggleFlag(id, enabled) {
             try {
                 await GasRush.db().from('feature_flags').update({ enabled }).eq('id', id);
+                const flag = allFlags.find(f => f.id === id);
+                if (flag) flag.enabled = enabled;
+                renderStats();
             } catch(e) {
                 console.error('Toggle failed:', e);
-                if (typeof GasRush.toast === 'function') GasRush.toast('Failed to update flag', 'error');
+                alert('Failed to update flag');
+            }
+        }
+
+        async function toggleCategory(cat, enabled) {
+            const flags = allFlags.filter(f => f.role === activeRole && (f.category || 'other') === cat);
+            try {
+                for (const f of flags) {
+                    await GasRush.db().from('feature_flags').update({ enabled }).eq('id', f.id);
+                    f.enabled = enabled;
+                }
+                renderFlags();
+                renderStats();
+            } catch(e) {
+                console.error('Bulk toggle failed:', e);
+                alert('Failed to update flags');
             }
         }
 
