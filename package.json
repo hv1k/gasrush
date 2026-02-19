@@ -13,6 +13,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^2.4.3"
+  },
   "bugs": {
     "url": "https://github.com/hv1k/gasrush/issues"
   },

@@ -183,10 +183,40 @@
             user.role === 'vendor' ? 'vendor-dashboard.html' :
             user.role === 'fieldworker' ? 'field-worker.html' : 'admin-dashboard.html';
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
-            // TODO: real Supabase auth
-            alert('Use a demo account for now');
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = e.target.querySelector('button[type="submit"]');
+            const origText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+
+            try {
+                const resp = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await resp.json();
+
+                if (!resp.ok || !data.success) {
+                    alert(data.error || 'Login failed');
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                    return;
+                }
+
+                GasRush.setUser(data.user);
+                const role = data.user.role;
+                window.location.href = role === 'rental' ? 'rental-dashboard.html' :
+                    role === 'vendor' ? 'vendor-dashboard.html' :
+                    role === 'fieldworker' ? 'field-worker.html' : 'admin-dashboard.html';
+            } catch(err) {
+                alert('Login failed: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = origText;
+            }
         }
     </script>
 </body>
