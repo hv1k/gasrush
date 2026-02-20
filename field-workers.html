@@ -111,11 +111,6 @@
                     <div class="worker-meta">📧 ${esc(w.email || '—')}</div>
                     <div class="worker-meta">📱 ${esc(w.phone || '—')}</div>
                     ${currentJob ? `<div class="worker-meta">🚛 ${esc(currentJob.job_site_name)}</div>` : ''}
-                    <div class="worker-stats">
-                        <div class="worker-stat"><div class="worker-stat-value">${active}</div><div class="worker-stat-label">Active</div></div>
-                        <div class="worker-stat"><div class="worker-stat-value">${completed}</div><div class="worker-stat-label">Completed</div></div>
-                        <div class="worker-stat"><div class="worker-stat-value">${totalGal ? totalGal.toLocaleString() : '0'}</div><div class="worker-stat-label">Gallons</div></div>
-                    </div>
                 </div>`;
             }).join('') + '</div>';
         }
