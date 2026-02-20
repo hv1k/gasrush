@@ -5,14 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GasRush — Field Workers</title>
     <link rel="stylesheet" href="theme.css">
+    <style>
+        .worker-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; cursor:pointer; transition:border-color .2s; }
+        .worker-card:hover { border-color:var(--primary); }
+        .worker-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .worker-name { font-size:16px; font-weight:600; }
+        .worker-meta { font-size:13px; color:var(--text-secondary); margin:4px 0; }
+        .worker-stats { display:flex; gap:16px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+        .worker-stat { text-align:center; flex:1; }
+        .worker-stat-value { font-size:18px; font-weight:700; }
+        .worker-stat-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; }
+        .workers-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; }
+        .action-btns { display:flex; gap:8px; margin-top:12px; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        @media(max-width:600px) { .form-row { grid-template-columns:1fr; } }
+    </style>
 </head>
 <body>
     <div class="app-layout">
         <aside class="sidebar">
-            <div class="sidebar-brand">
-                <div class="logo">⛽</div>
-                <span class="brand-name">GasRush</span>
-            </div>
+            <div class="sidebar-brand"><div class="logo">⛽</div><span class="brand-name">GasRush</span></div>
             <nav id="sidebarNav"></nav>
             <div id="sidebarFooter"></div>
         </aside>
@@ -23,37 +35,29 @@
                     <h1>Field Workers</h1>
                     <p class="text-secondary">Manage your field team</p>
                 </div>
-                <button class="btn btn-primary" onclick="openModal()">+ Add Field Worker</button>
+                <button class="btn btn-primary" onclick="showAddModal()">+ Add Field Worker</button>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-label">Total Workers</div><div class="stat-value" id="statTotal">—</div></div>
-                <div class="stat-card"><div class="stat-label">Active Now</div><div class="stat-value" id="statActive">—</div></div>
-                <div class="stat-card"><div class="stat-label">On Break</div><div class="stat-value" id="statBreak">—</div></div>
+                <div class="stat-card"><div class="stat-label">Active Jobs</div><div class="stat-value" id="statActive">—</div></div>
+                <div class="stat-card"><div class="stat-label">Completed This Week</div><div class="stat-value" id="statWeek">—</div></div>
             </div>
 
-            <div class="card">
-                <div class="card-header"><h2 class="card-title">All Field Workers</h2></div>
-                <div id="workersTable">
-                    <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
-                </div>
+            <div id="workersContainer">
+                <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
             </div>
         </main>
     </div>
 
     <!-- Modal -->
-    <div id="workerModal" class="modal-overlay" style="display:none;">
-        <div class="modal">
-            <div class="modal-header"><h2 class="modal-title">Add Field Worker</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
-            <div class="modal-body">
-                <div class="form-group"><label class="form-label">Name</label><input type="text" id="mName" class="form-input"></div>
-                <div class="form-group"><label class="form-label">Email</label><input type="email" id="mEmail" class="form-input"></div>
-                <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="mPhone" class="form-input"></div>
+    <div class="modal-overlay" id="modal">
+        <div class="modal" style="max-width:560px">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Field Worker</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="addWorker()">Add Worker</button>
-            </div>
+            <div id="modalBody"></div>
         </div>
     </div>
 
@@ -61,78 +65,241 @@
     <script src="app.js"></script>
     <script src="mobile.js"></script>
     <script>
-        const mockWorkers = [
-            { name: 'Mike Johnson', email: 'mike@gasrush.com', phone: '(555) 111-2222', status: 'active', current_job: 'Downtown Refuel' },
-            { name: 'Sarah Chen', email: 'sarah@gasrush.com', phone: '(555) 333-4444', status: 'active', current_job: 'Harbor Delivery' },
-            { name: 'Carlos Rivera', email: 'carlos@gasrush.com', phone: '(555) 555-6666', status: 'offline', current_job: null },
-            { name: 'Alex Kim', email: 'alex@gasrush.com', phone: '(555) 777-8888', status: 'break', current_job: null }
-        ];
-
         let workers = [];
+        let allJobs = [];
+        let currentUser = null;
 
         (async () => {
-            const user = await GasRush.init({ roles: ['vendor', 'admin'] });
-            if (!user) return;
-            await loadWorkers();
+            currentUser = await GasRush.init({ roles: ['vendor', 'admin'] });
+            if (!currentUser) return;
+            await loadData();
         })();
 
-        async function loadWorkers() {
+        async function loadData() {
             try {
-                const { data, error } = await GasRush.db().from('users').select('*').eq('role', 'fieldworker');
-                if (error) throw error;
-                workers = (data && data.length > 0) ? data : mockWorkers;
+                const [wRes, jRes] = await Promise.all([
+                    GasRush.db().from('users').select('*').eq('role', 'fieldworker'),
+                    GasRush.db().from('jobs').select('id,job_site_name,status,assigned_worker,completed_at,billable_services')
+                ]);
+                workers = wRes.data || [];
+                allJobs = jRes.data || [];
             } catch(e) {
                 console.error(e);
-                workers = mockWorkers;
+                workers = [];
+                allJobs = [];
             }
             updateStats();
-            renderTable();
+            renderWorkers();
         }
 
         function updateStats() {
             document.getElementById('statTotal').textContent = workers.length;
-            document.getElementById('statActive').textContent = workers.filter(w => w.status === 'active').length;
-            document.getElementById('statBreak').textContent = workers.filter(w => w.status === 'break').length;
+            const activeWorkerIds = new Set(allJobs.filter(j => ['active','in-progress'].includes(j.status)).map(j => j.assigned_worker).filter(Boolean));
+            document.getElementById('statActive').textContent = activeWorkerIds.size;
+
+            const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+            const weekCompleted = allJobs.filter(j => j.status === 'completed' && j.completed_at && new Date(j.completed_at) >= weekAgo).length;
+            document.getElementById('statWeek').textContent = weekCompleted;
         }
 
-        function renderTable() {
-            const c = document.getElementById('workersTable');
-            if (!workers.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👷</div><h3>No field workers found</h3></div>'; return; }
-            const sb = { active: 'badge-success', offline: 'badge-secondary', break: 'badge-warning' };
-            let h = '<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Current Job</th></tr></thead><tbody>';
-            for (const w of workers) {
-                const badge = sb[w.status] || 'badge-secondary';
-                h += `<tr><td><strong>${esc(w.name||'—')}</strong></td><td>${esc(w.email||'—')}</td><td>${esc(w.phone||'—')}</td><td><span class="badge ${badge}">${w.status||'offline'}</span></td><td>${esc(w.current_job||'—')}</td></tr>`;
+        function renderWorkers() {
+            const c = document.getElementById('workersContainer');
+            if (!workers.length) {
+                c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👷</div><h3>No field workers yet</h3><p>Add your first field worker to get started</p></div>';
+                return;
             }
-            h += '</tbody></table></div>';
-            c.innerHTML = h;
+
+            c.innerHTML = '<div class="workers-grid">' + workers.map(w => {
+                const wJobs = allJobs.filter(j => j.assigned_worker === w.id);
+                const active = wJobs.filter(j => ['active','in-progress','assigned'].includes(j.status)).length;
+                const completed = wJobs.filter(j => j.status === 'completed').length;
+                const totalGal = wJobs.filter(j => j.status === 'completed').reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons) || 0), 0);
+                const currentJob = wJobs.find(j => ['active','in-progress'].includes(j.status));
+                const statusBadge = currentJob ? '<span class="badge badge-success">on job</span>' : active > 0 ? '<span class="badge badge-primary">assigned</span>' : '<span class="badge badge-secondary">available</span>';
+
+                return `<div class="worker-card" onclick="viewWorker('${w.id}')">
+                    <div class="worker-card-header">
+                        <div class="worker-name">${esc(w.name || 'Unnamed')}</div>
+                        ${statusBadge}
+                    </div>
+                    <div class="worker-meta">📧 ${esc(w.email || '—')}</div>
+                    <div class="worker-meta">📱 ${esc(w.phone || '—')}</div>
+                    ${currentJob ? `<div class="worker-meta">🚛 ${esc(currentJob.job_site_name)}</div>` : ''}
+                    <div class="worker-stats">
+                        <div class="worker-stat"><div class="worker-stat-value">${active}</div><div class="worker-stat-label">Active</div></div>
+                        <div class="worker-stat"><div class="worker-stat-value">${completed}</div><div class="worker-stat-label">Completed</div></div>
+                        <div class="worker-stat"><div class="worker-stat-value">${totalGal ? totalGal.toLocaleString() : '0'}</div><div class="worker-stat-label">Gallons</div></div>
+                    </div>
+                </div>`;
+            }).join('') + '</div>';
         }
 
-        function openModal() { document.getElementById('workerModal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('workerModal').style.display = 'none'; }
+        async function viewWorker(id) {
+            const w = workers.find(x => x.id === id);
+            if (!w) return;
+
+            const wJobs = allJobs.filter(j => j.assigned_worker === id);
+            const activeJobs = wJobs.filter(j => !['completed','cancelled'].includes(j.status));
+            const completedJobs = wJobs.filter(j => j.status === 'completed').sort((a,b) => new Date(b.completed_at||0) - new Date(a.completed_at||0));
+
+            let html = `
+                <div style="padding:4px 0">
+                    <div class="job-detail">
+                        <div class="job-detail-item"><label>Name</label><div class="value">${esc(w.name)}</div></div>
+                        <div class="job-detail-item"><label>Email</label><div class="value">${esc(w.email||'—')}</div></div>
+                        <div class="job-detail-item"><label>Phone</label><div class="value">${esc(w.phone||'—')}</div></div>
+                        <div class="job-detail-item"><label>Company</label><div class="value">${esc(w.company||'—')}</div></div>
+                    </div>`;
+
+            // Active jobs
+            if (activeJobs.length) {
+                html += `<div style="margin-top:16px"><label class="form-label" style="color:var(--primary)">Active Jobs (${activeJobs.length})</label>`;
+                activeJobs.forEach(j => {
+                    html += `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+                        <strong>${esc(j.job_site_name)}</strong> — <span class="badge badge-primary">${j.status}</span>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            // Completed jobs
+            html += `<div style="margin-top:16px"><label class="form-label" style="color:var(--primary)">Completed Jobs (${completedJobs.length})</label>`;
+            if (completedJobs.length) {
+                html += '<div style="max-height:200px;overflow-y:auto">';
+                completedJobs.slice(0, 15).forEach(j => {
+                    const d = j.completed_at ? new Date(j.completed_at).toLocaleDateString() : '—';
+                    const gal = j.billable_services?.fuelGallons || '—';
+                    html += `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between">
+                        <span>${esc(j.job_site_name)}</span><span style="color:var(--text-muted)">${d} · ${gal} gal</span>
+                    </div>`;
+                });
+                html += '</div>';
+            } else {
+                html += '<p style="font-size:13px;color:var(--text-muted)">No completed jobs yet</p>';
+            }
+            html += '</div>';
+
+            // Action buttons
+            html += `<div class="action-btns" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+                <button class="btn btn-primary" onclick="editWorker('${id}')">✏️ Edit</button>
+                <button class="btn btn-danger" onclick="deleteWorker('${id}','${esc(w.name)}')">🗑️ Remove</button>
+                <button class="btn btn-secondary" onclick="closeModal()" style="margin-left:auto">Close</button>
+            </div></div>`;
+
+            document.getElementById('modalTitle').textContent = w.name || 'Field Worker';
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function editWorker(id) {
+            const w = workers.find(x => x.id === id);
+            if (!w) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit ' + (w.name || 'Worker');
+            document.getElementById('modalBody').innerHTML = `
+                <div style="padding:4px 0">
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Name</label><input type="text" id="editName" class="form-input" value="${esc(w.name||'')}"></div>
+                        <div class="form-group"><label class="form-label">Email</label><input type="email" id="editEmail" class="form-input" value="${esc(w.email||'')}"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="editPhone" class="form-input" value="${esc(w.phone||'')}"></div>
+                        <div class="form-group"><label class="form-label">Company</label><input type="text" id="editCompany" class="form-input" value="${esc(w.company||'')}"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">Password (leave blank to keep current)</label><input type="password" id="editPassword" class="form-input" placeholder="••••••••"></div>
+                    <div class="action-btns" style="margin-top:16px">
+                        <button class="btn btn-primary" onclick="saveWorker('${id}')">💾 Save Changes</button>
+                        <button class="btn btn-secondary" onclick="viewWorker('${id}')">Cancel</button>
+                    </div>
+                </div>`;
+        }
+
+        async function saveWorker(id) {
+            const update = {
+                name: document.getElementById('editName').value.trim(),
+                email: document.getElementById('editEmail').value.trim(),
+                phone: document.getElementById('editPhone').value.trim(),
+                company: document.getElementById('editCompany').value.trim() || null
+            };
+            const pw = document.getElementById('editPassword').value;
+            if (!update.name || !update.email) { alert('Name and email required'); return; }
+
+            try {
+                // If password changed, we'd need to hash it server-side
+                // For now just update profile fields
+                const { error } = await GasRush.db().from('users').update(update).eq('id', id);
+                if (error) throw error;
+
+                const w = workers.find(x => x.id === id);
+                if (w) Object.assign(w, update);
+                renderWorkers();
+                viewWorker(id);
+            } catch(e) {
+                alert('Failed to save: ' + e.message);
+            }
+        }
+
+        async function deleteWorker(id, name) {
+            if (!confirm(`Remove ${name} from field workers? This cannot be undone.`)) return;
+            try {
+                const { error } = await GasRush.db().from('users').delete().eq('id', id);
+                if (error) throw error;
+                workers = workers.filter(w => w.id !== id);
+                updateStats();
+                renderWorkers();
+                closeModal();
+            } catch(e) {
+                alert('Failed to remove: ' + e.message);
+            }
+        }
+
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Field Worker';
+            document.getElementById('modalBody').innerHTML = `
+                <div style="padding:4px 0">
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Name *</label><input type="text" id="addName" class="form-input" placeholder="Full name"></div>
+                        <div class="form-group"><label class="form-label">Email *</label><input type="email" id="addEmail" class="form-input" placeholder="email@company.com"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="addPhone" class="form-input" placeholder="(555) 123-4567"></div>
+                        <div class="form-group"><label class="form-label">Company</label><input type="text" id="addCompany" class="form-input" placeholder="Company name"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">Password *</label><input type="password" id="addPassword" class="form-input" placeholder="Initial password"></div>
+                    <div class="action-btns" style="margin-top:16px">
+                        <button class="btn btn-primary" onclick="addWorker()">+ Add Worker</button>
+                        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </div>`;
+            document.getElementById('modal').classList.add('active');
+        }
 
         async function addWorker() {
-            const name = document.getElementById('mName').value.trim();
-            const email = document.getElementById('mEmail').value.trim();
-            const phone = document.getElementById('mPhone').value.trim();
-            if (!name || !email) { if (typeof GasRush.toast === 'function') GasRush.toast('Name and email required', 'error'); return; }
+            const name = document.getElementById('addName').value.trim();
+            const email = document.getElementById('addEmail').value.trim();
+            const phone = document.getElementById('addPhone').value.trim();
+            const company = document.getElementById('addCompany').value.trim();
+            const password = document.getElementById('addPassword').value;
+
+            if (!name || !email || !password) { alert('Name, email and password are required'); return; }
+
             try {
-                const { error } = await GasRush.db().from('users').insert({ name, email, phone, role: 'fieldworker', status: 'active' });
+                const { error } = await GasRush.db().from('users').insert({
+                    name, email, phone: phone || null, company: company || null,
+                    password: password, // Note: should be hashed server-side in production
+                    role: 'fieldworker'
+                });
                 if (error) throw error;
                 closeModal();
-                if (typeof GasRush.toast === 'function') GasRush.toast('Field worker added', 'success');
-                await loadWorkers();
+                await loadData();
             } catch(e) {
-                console.error(e);
-                workers.push({ name, email, phone, status: 'active', current_job: null });
-                closeModal();
-                updateStats();
-                renderTable();
-                if (typeof GasRush.toast === 'function') GasRush.toast('Field worker added (local)', 'success');
+                alert('Failed to add: ' + e.message);
             }
         }
 
-        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function closeModal() { document.getElementById('modal').classList.remove('active'); }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     </script>
 </body>
 </html>
