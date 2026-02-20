@@ -151,16 +151,52 @@
             c.innerHTML = html;
         }
 
-        function viewJob(id) {
+        async function viewJob(id) {
             const job = allOrders.find(j => j.id === id);
             if (!job) return;
 
             const modal = document.getElementById('jobModal');
             document.getElementById('modalTitle').textContent = job.job_site_name || 'Job Details';
 
-            const fuel = job.billable_services?.fuelGallons || '—';
-            const def = job.billable_services?.defGallons || '—';
             const status = job.status || 'pending';
+
+            // Fetch equipment for this job
+            let equipHtml = '';
+            try {
+                const { data: equip } = await GasRush.db().from('equipment').select('*').eq('job_id', id);
+                if (equip && equip.length) {
+                    equipHtml = `<div style="margin-top:16px"><label class="form-label" style="font-size:13px;color:var(--primary)">Equipment / Units</label>
+                        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:6px">
+                            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">QTY</th><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">Unit #</th><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">Description</th></tr>
+                            ${equip.map(e => `<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 8px">${e.quantity||1}</td><td style="padding:6px 8px">${esc(e.equipment_number||'—')}</td><td style="padding:6px 8px">${esc(e.description||'—')}</td></tr>`).join('')}
+                        </table></div>`;
+                }
+            } catch(e) { console.warn('Equipment load error:', e); }
+
+            // Fetch previous completed jobs at same site
+            let historyHtml = '';
+            try {
+                const { data: prev } = await GasRush.db().from('jobs').select('*')
+                    .eq('job_site_name', job.job_site_name)
+                    .eq('status', 'completed')
+                    .neq('id', id)
+                    .order('completed_at', { ascending: false })
+                    .limit(10);
+                if (prev && prev.length) {
+                    historyHtml = `<div style="margin-top:16px"><label class="form-label" style="font-size:13px;color:var(--primary)">Previous Deliveries to This Site</label>
+                        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:6px">
+                            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">Date</th><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">Type</th><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">Diesel</th><th style="text-align:left;padding:6px 8px;color:var(--text-secondary)">DEF</th></tr>
+                            ${prev.map(p => {
+                                const d = p.completed_at ? new Date(p.completed_at).toLocaleDateString() : '—';
+                                const fuel = p.billable_services?.fuelGallons || '—';
+                                const def = p.billable_services?.defGallons || '—';
+                                return `<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 8px">${d}</td><td style="padding:6px 8px;text-transform:capitalize">${(p.job_type||'delivery').replace('-',' ')}</td><td style="padding:6px 8px">${fuel} gal</td><td style="padding:6px 8px">${def} gal</td></tr>`;
+                            }).join('')}
+                        </table></div>`;
+                } else {
+                    historyHtml = `<div style="margin-top:16px"><label class="form-label" style="font-size:13px;color:var(--primary)">Previous Deliveries to This Site</label><p style="font-size:13px;color:var(--text-muted);margin-top:4px">No previous completed deliveries</p></div>`;
+                }
+            } catch(e) { console.warn('History load error:', e); }
 
             let html = `
                 <div class="job-detail">
@@ -172,8 +208,6 @@
                     <div class="job-detail-item"><label>City / State</label><div class="value">${esc(job.address_city||'')} ${esc(job.address_state||'')} ${esc(job.address_zip||'')}</div></div>
                     <div class="job-detail-item"><label>Customer</label><div class="value">${esc(job.customer_name||'—')}</div></div>
                     <div class="job-detail-item"><label>Contact</label><div class="value">${esc(job.contact_name||'—')} ${esc(job.contact_phone||'')}</div></div>
-                    <div class="job-detail-item"><label>Fuel Gallons</label><div class="value">${fuel}</div></div>
-                    <div class="job-detail-item"><label>DEF Gallons</label><div class="value">${def}</div></div>
                     <div class="job-detail-item"><label>Priority</label><div class="value" style="text-transform:capitalize">${job.priority||'normal'}</div></div>
                     <div class="job-detail-item"><label>Created</label><div class="value">${job.created_at ? new Date(job.created_at).toLocaleString() : '—'}</div></div>
                 </div>`;
@@ -181,6 +215,9 @@
             if (job.instructions) {
                 html += `<div style="margin-top:12px"><label class="form-label">Instructions</label><p style="font-size:14px;color:var(--text-secondary)">${esc(job.instructions)}</p></div>`;
             }
+
+            html += equipHtml;
+            html += historyHtml;
 
             // Role-based actions
             html += '<div class="actions-bar">';
