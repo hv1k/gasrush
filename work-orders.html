@@ -91,7 +91,8 @@
                 if (currentUser.role === 'fieldworker') {
                     query = query.eq('assigned_worker', currentUser.id);
                 } else if (currentUser.role === 'vendor') {
-                    query = query.eq('assigned_vendor', currentUser.vendor_id);
+                    // Vendors see their assigned jobs + all pending (unassigned) jobs
+                    query = query.or(`assigned_vendor.eq.${currentUser.vendor_id},status.eq.pending,assigned_vendor.is.null`);
                 }
 
                 const { data, error } = await query;
@@ -229,48 +230,139 @@
             }
         }
 
-        async function completeJob(id) {
-            const gallons = prompt('Enter fuel gallons delivered (or leave blank):');
+        function completeJob(id) {
+            const job = allOrders.find(j => j.id === id);
+            const reqFuel = job?.billable_services?.fuelGallons || '';
+            const reqDef = job?.billable_services?.defGallons || '';
+
+            let html = `
+                <p class="text-muted" style="font-size:14px;margin-bottom:16px">Enter actual delivery data to complete this job:</p>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Diesel Delivered (gal)</label>
+                        <input type="number" step="0.1" id="cmpFuel" class="form-input" value="${reqFuel}" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">DEF Delivered (gal)</label>
+                        <input type="number" step="0.1" id="cmpDef" class="form-input" value="${reqDef}" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Work Performed / Notes</label>
+                    <textarea id="cmpNotes" class="form-textarea" rows="3" placeholder="Describe work performed, equipment status, etc."></textarea>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Field Ticket ID</label>
+                        <input type="text" id="cmpTicket" class="form-input" placeholder="FT-001">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ticket Type</label>
+                        <input type="text" id="cmpTicketType" class="form-input" placeholder="DELIVERY">
+                    </div>
+                </div>
+                <div class="flex gap-2" style="margin-top:16px">
+                    <button class="btn btn-success" onclick="submitComplete('${id}')">✅ Complete Job</button>
+                    <button class="btn btn-secondary" onclick="viewJob('${id}')">Back</button>
+                </div>`;
+
+            document.getElementById('modalTitle').textContent = 'Complete Job — ' + (job?.job_site_name || '');
+            document.getElementById('modalBody').innerHTML = html;
+        }
+
+        async function submitComplete(id) {
             try {
-                const update = { status: 'completed', completed_at: new Date().toISOString() };
-                
                 const job = allOrders.find(j => j.id === id);
-                if (gallons && !isNaN(gallons)) {
-                    const bs = job?.billable_services || {};
-                    bs.fuelGallons = parseFloat(gallons);
-                    update.billable_services = bs;
-                }
+                const fuel = parseFloat(document.getElementById('cmpFuel').value) || 0;
+                const def = parseFloat(document.getElementById('cmpDef').value) || 0;
+                const notes = document.getElementById('cmpNotes').value || null;
+                const ticketId = document.getElementById('cmpTicket').value || null;
+                const ticketType = document.getElementById('cmpTicketType').value || null;
+
+                const bs = { ...(job?.billable_services || {}), fuelGallons: fuel || null, defGallons: def || null };
+
+                const update = {
+                    status: 'completed',
+                    completed_at: new Date().toISOString(),
+                    billable_services: bs,
+                    work_performed: notes,
+                    field_ticket_id: ticketId,
+                    ticket_type: ticketType,
+                    ticket_status: 'COMPLETED'
+                };
 
                 const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
                 if (error) throw error;
 
-                // Create invoice
+                // Auto-create invoice
                 try {
                     await GasRush.db().from('invoices').insert({
                         job_id: id,
                         vendor_id: job?.assigned_vendor || currentUser.vendor_id,
-                        amount: gallons ? (parseFloat(gallons) * 3.50).toFixed(2) : 0,
+                        amount: ((fuel * 3.50) + (def * 2.50)).toFixed(2),
                         status: 'pending',
                         created_at: new Date().toISOString(),
-                        description: `Fuel delivery - ${job?.job_site_name || 'Job'}`
+                        description: `${job?.job_site_name || 'Job'} — ${fuel} gal diesel, ${def} gal DEF`
                     });
                 } catch(ie) {
-                    console.warn('Invoice creation failed (table may not exist):', ie);
+                    console.warn('Invoice creation failed:', ie);
                 }
 
                 if (job) Object.assign(job, update);
                 filterOrders();
                 closeModal();
-                alert('Job completed' + (gallons ? ` — ${gallons} gal delivered` : '') + '. Invoice created.');
+                alert(`Job completed — ${fuel} gal diesel, ${def} gal DEF. Invoice created.`);
             } catch(e) {
                 alert('Failed: ' + e.message);
             }
         }
 
-        function assignWorker(id) {
-            const workerName = prompt('Enter field worker name or ID to assign:');
-            if (!workerName) return;
-            updateJobStatus(id, 'assigned');
+        let cachedWorkers = null;
+        async function assignWorker(id) {
+            // Load field workers if not cached
+            if (!cachedWorkers) {
+                try {
+                    const { data } = await GasRush.db().from('users').select('id,name,email').eq('role', 'fieldworker');
+                    cachedWorkers = data || [];
+                } catch(e) { cachedWorkers = []; }
+            }
+
+            if (cachedWorkers.length === 0) {
+                alert('No field workers found in the system.');
+                return;
+            }
+
+            // Build a selection modal
+            const job = allOrders.find(j => j.id === id);
+            let html = '<div style="margin-bottom:16px"><p class="text-muted" style="font-size:14px">Select a field worker to assign to this job:</p></div>';
+            html += '<div style="display:flex;flex-direction:column;gap:8px">';
+            for (const w of cachedWorkers) {
+                html += `<button class="btn btn-secondary" style="justify-content:flex-start;padding:12px 16px" onclick="confirmAssignWorker('${id}','${w.id}','${esc(w.name)}')">
+                    <span>👷</span>
+                    <div style="text-align:left"><div style="font-weight:600">${esc(w.name)}</div><div style="font-size:12px;color:var(--text-muted)">${esc(w.email)}</div></div>
+                </button>`;
+            }
+            html += '</div>';
+
+            document.getElementById('modalTitle').textContent = 'Assign Field Worker';
+            document.getElementById('modalBody').innerHTML = html;
+        }
+
+        async function confirmAssignWorker(jobId, workerId, workerName) {
+            try {
+                const { error } = await GasRush.db().from('jobs').update({
+                    assigned_worker: workerId,
+                    status: 'assigned'
+                }).eq('id', jobId);
+                if (error) throw error;
+
+                const job = allOrders.find(j => j.id === jobId);
+                if (job) { job.assigned_worker = workerId; job.status = 'assigned'; }
+                filterOrders();
+                viewJob(jobId);
+            } catch(e) {
+                alert('Failed to assign: ' + e.message);
+            }
         }
 
         function closeModal() {

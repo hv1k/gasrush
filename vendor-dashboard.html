@@ -86,7 +86,7 @@
                 let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
 
                 if (currentUser.role === 'vendor' && currentUser.vendor_id) {
-                    query = query.eq('vendor_id', currentUser.vendor_id);
+                    query = query.or(`assigned_vendor.eq.${currentUser.vendor_id},status.eq.pending,assigned_vendor.is.null`);
                 }
 
                 const { data: jobs, error } = await query;
@@ -96,7 +96,7 @@
                 const assigned = all.filter(j => ['pending', 'active', 'assigned'].includes(j.status)).length;
                 const completed = all.filter(j => j.status === 'completed').length;
                 const gallons = all.reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
-                const workers = new Set(all.filter(j => j.assigned_to).map(j => j.assigned_to)).size;
+                const workers = new Set(all.filter(j => j.assigned_worker).map(j => j.assigned_worker)).size;
 
                 document.getElementById('statAssigned').textContent = assigned;
                 document.getElementById('statCompleted').textContent = completed;
