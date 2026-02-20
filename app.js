@@ -154,7 +154,6 @@ const GasRush = (() => {
             ],
             tools: [
                 { label: 'Daily Log', icon: '📒', href: 'daily-log.html', flag: 'page.daily_log' },
-                { label: 'Time Tracking', icon: '⏱️', href: 'time-tracking.html', flag: 'page.time_tracking' },
                 { label: 'Chat', icon: '💬', href: 'chat.html', flag: 'page.chat' }
             ],
             settings: [
