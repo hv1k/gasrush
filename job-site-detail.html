@@ -30,20 +30,6 @@
         .equip-list { margin-top:8px; }
         .equip-item { font-size:12px; color:var(--text-muted); padding:2px 0; }
         .filter-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
-        .consumption-chart {
-            background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg);
-            padding:24px; margin-bottom:24px;
-        }
-        .bar-chart { display:flex; align-items:flex-end; gap:6px; height:160px; padding-top:20px; }
-        .bar-col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:30px; }
-        .bar { width:100%; border-radius:4px 4px 0 0; transition:height .3s; position:relative; }
-        .bar.fuel { background:var(--warning); }
-        .bar.def { background:var(--primary); }
-        .bar-label { font-size:10px; color:var(--text-muted); margin-top:6px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60px; }
-        .bar-value { font-size:10px; color:var(--text-secondary); font-weight:600; margin-bottom:2px; }
-        .chart-legend { display:flex; gap:16px; margin-top:12px; justify-content:center; }
-        .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); }
-        .legend-dot { width:10px; height:10px; border-radius:2px; }
     </style>
 </head>
 <body>
@@ -68,18 +54,6 @@
             </div>
 
             <div class="stats-grid" id="siteStats"></div>
-
-            <!-- Fuel Consumption Chart -->
-            <div class="consumption-chart" id="chartSection" style="display:none">
-                <div class="card-header">
-                    <h2 class="card-title">Fuel Consumption Over Time</h2>
-                </div>
-                <div class="bar-chart" id="barChart"></div>
-                <div class="chart-legend">
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--warning)"></div>Diesel</div>
-                    <div class="legend-item"><div class="legend-dot" style="background:var(--primary)"></div>DEF</div>
-                </div>
-            </div>
 
             <!-- Job History -->
             <div class="card">
@@ -153,7 +127,6 @@
 
                 renderHeader();
                 renderStats();
-                renderChart();
                 renderJobs();
                 renderEquipment();
             } catch(e) {
@@ -189,37 +162,6 @@
                 <div class="stat-card"><div class="stat-label">First Job</div><div class="stat-value" style="font-size:16px">${firstDate}</div></div>
                 <div class="stat-card"><div class="stat-label">Latest Job</div><div class="stat-value" style="font-size:16px">${lastDate}</div></div>
             `;
-        }
-
-        function renderChart() {
-            // Group fuel consumption by month
-            const monthly = {};
-            for (const j of allJobs) {
-                const d = new Date(j.created_at);
-                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                if (!monthly[key]) monthly[key] = { fuel: 0, def: 0 };
-                monthly[key].fuel += parseFloat(j.billable_services?.fuelGallons) || 0;
-                monthly[key].def += parseFloat(j.billable_services?.defGallons) || 0;
-            }
-
-            const months = Object.keys(monthly).sort();
-            if (months.length < 1) return;
-
-            document.getElementById('chartSection').style.display = '';
-            const maxVal = Math.max(...months.map(m => Math.max(monthly[m].fuel, monthly[m].def)), 1);
-
-            document.getElementById('barChart').innerHTML = months.map(m => {
-                const d = monthly[m];
-                const fuelH = Math.max((d.fuel / maxVal) * 130, 2);
-                const defH = Math.max((d.def / maxVal) * 130, d.def > 0 ? 2 : 0);
-                const label = new Date(m + '-01').toLocaleDateString('en', { month: 'short', year: '2-digit' });
-                return `<div class="bar-col">
-                    ${d.fuel > 0 ? `<div class="bar-value">${Math.round(d.fuel)}</div>` : ''}
-                    <div class="bar fuel" style="height:${fuelH}px" title="${Math.round(d.fuel)} gal diesel"></div>
-                    ${d.def > 0 ? `<div class="bar def" style="height:${defH}px;margin-top:2px" title="${Math.round(d.def)} gal DEF"></div>` : ''}
-                    <div class="bar-label">${label}</div>
-                </div>`;
-            }).join('');
         }
 
         function renderJobs() {
