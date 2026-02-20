@@ -61,21 +61,6 @@ const GasRush = (() => {
         return map[role] || 'login.html';
     }
 
-    // ── Demo Login ──
-    const DEMO_USERS = {
-        rental: { id: 'demo-rental', name: 'Rental User', email: 'rental@demo.com', role: 'rental', company: 'GasRush Demo', token: 'demo-rental-token' },
-        vendor: { id: 'demo-vendor', name: 'Vendor User', email: 'vendor@demo.com', role: 'vendor', vendor_id: 'demo-vendor-id', company: 'Demo Fuel Co', token: 'demo-vendor-token' },
-        fieldworker: { id: 'demo-fw', name: 'John Driver', email: 'driver@demo.com', role: 'fieldworker', vendor_id: 'demo-vendor-id', company: 'Demo Fuel Co', token: 'demo-fw-token' },
-        admin: { id: 'demo-admin', name: 'Admin User', email: 'admin@demo.com', role: 'admin', company: 'GasRush', token: 'demo-admin-token' }
-    };
-
-    function demoLogin(role) {
-        const user = DEMO_USERS[role];
-        if (!user) return;
-        setUser(user);
-        window.location.href = getDashboardForRole(role);
-    }
-
     // ── Feature Flags ──
     async function loadFlags() {
         const user = getUser();
@@ -274,7 +259,7 @@ const GasRush = (() => {
     }
 
     return {
-        db, getUser, setUser, logout, requireAuth, demoLogin,
+        db, getUser, setUser, logout, requireAuth,
         flagEnabled, toggleTheme, init, renderSidebar, NAV_CONFIG,
         get ready() { return _ready; }
     };
