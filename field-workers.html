@@ -199,7 +199,6 @@
             const update = {
                 name: document.getElementById('editName').value.trim(),
                 email: document.getElementById('editEmail').value.trim(),
-                phone: document.getElementById('editPhone').value.trim(),
                 company: document.getElementById('editCompany').value.trim() || null
             };
             const pw = document.getElementById('editPassword').value;
@@ -266,8 +265,8 @@
 
             try {
                 const { error } = await GasRush.db().from('users').insert({
-                    name, email, phone: phone || null, company: company || null,
-                    password: password, // Note: should be hashed server-side in production
+                    name, email, company: company || null,
+                    password: password,
                     role: 'fieldworker'
                 });
                 if (error) throw error;
