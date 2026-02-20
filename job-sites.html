@@ -87,6 +87,7 @@
             try {
                 let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
 
+                if (currentUser.role === 'rental') query = query.eq('created_by', currentUser.id);
                 if (currentUser.role === 'vendor') query = query.eq('assigned_vendor', currentUser.vendor_id);
                 if (currentUser.role === 'fieldworker') query = query.eq('assigned_worker', currentUser.id);
 

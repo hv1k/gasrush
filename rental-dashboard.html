@@ -96,10 +96,9 @@
 
         async function loadData() {
             try {
-                const { data: jobs, error } = await GasRush.db()
-                    .from('jobs')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+                let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
+                if (user.role === 'rental') query = query.eq('created_by', user.id);
+                const { data: jobs, error } = await query;
 
                 if (error) throw error;
                 allOrders = jobs || [];
