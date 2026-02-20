@@ -125,6 +125,7 @@ const GasRush = (() => {
         vendor: {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'vendor-dashboard.html' },
+                { label: 'Work Orders', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' },
                 { label: 'Job Sites', icon: '📍', href: 'job-sites.html', flag: 'page.job_sites' }
             ],
             management: [
