@@ -38,12 +38,6 @@
                 <button class="btn btn-primary" onclick="showAddModal()">+ Add Field Worker</button>
             </div>
 
-            <div class="stats-grid">
-                <div class="stat-card"><div class="stat-label">Total Workers</div><div class="stat-value" id="statTotal">—</div></div>
-                <div class="stat-card"><div class="stat-label">Active Jobs</div><div class="stat-value" id="statActive">—</div></div>
-                <div class="stat-card"><div class="stat-label">Completed This Week</div><div class="stat-value" id="statWeek">—</div></div>
-            </div>
-
             <div id="workersContainer">
                 <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
             </div>
@@ -92,15 +86,7 @@
             renderWorkers();
         }
 
-        function updateStats() {
-            document.getElementById('statTotal').textContent = workers.length;
-            const activeWorkerIds = new Set(allJobs.filter(j => ['active','in-progress'].includes(j.status)).map(j => j.assigned_worker).filter(Boolean));
-            document.getElementById('statActive').textContent = activeWorkerIds.size;
-
-            const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-            const weekCompleted = allJobs.filter(j => j.status === 'completed' && j.completed_at && new Date(j.completed_at) >= weekAgo).length;
-            document.getElementById('statWeek').textContent = weekCompleted;
-        }
+        function updateStats() {}
 
         function renderWorkers() {
             const c = document.getElementById('workersContainer');
