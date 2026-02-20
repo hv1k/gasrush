@@ -58,7 +58,10 @@
         </aside>
 
         <main class="main-content">
-            <a href="job-sites.html" class="back-link">← Back to Job Sites</a>
+            <div class="flex justify-between items-center" style="margin-bottom:16px">
+                <a href="job-sites.html" class="back-link" style="margin:0">← Back to Job Sites</a>
+                <button class="btn btn-primary" onclick="exportExcel()">📥 Export to Excel</button>
+            </div>
 
             <div class="site-header-card" id="siteHeader">
                 <div class="empty-state"><h3>Loading...</h3></div>
@@ -110,6 +113,7 @@
         </main>
     </div>
 
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
     <script src="mobile.js"></script>
@@ -282,6 +286,76 @@
                     <td>${esc(e.description || '—')}</td>
                     <td>${e.count}</td>
                 </tr>`).join('') + '</tbody></table></div>';
+        }
+
+        function exportExcel() {
+            if (!allJobs.length) { alert('No data to export'); return; }
+
+            // Summary sheet
+            const totalFuel = allJobs.reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons) || 0), 0);
+            const totalDef = allJobs.reduce((s, j) => s + (parseFloat(j.billable_services?.defGallons) || 0), 0);
+            const completed = allJobs.filter(j => j.status === 'completed').length;
+            const first = allJobs[allJobs.length - 1];
+
+            const summary = [
+                ['Job Site Summary'],
+                ['Site Name', siteName],
+                ['Address', [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ')],
+                ['Customer', first.customer_name || ''],
+                ['Contact', first.contact_name || '', first.contact_phone || ''],
+                [],
+                ['Total Jobs', allJobs.length],
+                ['Completed', completed],
+                ['Total Diesel (gal)', totalFuel],
+                ['Total DEF (gal)', totalDef],
+                ['Date Range', allJobs.length ? new Date(allJobs[allJobs.length-1].created_at).toLocaleDateString() + ' — ' + new Date(allJobs[0].created_at).toLocaleDateString() : ''],
+            ];
+
+            // Job detail rows
+            const headers = ['Date', 'Type', 'Status', 'Contract #', 'PO #', 'Diesel (gal)', 'DEF (gal)', 'Field Ticket', 'Work Performed', 'Notes'];
+            const rows = allJobs.map(j => [
+                j.created_at ? new Date(j.created_at).toLocaleDateString() : '',
+                (j.job_type || '').replace('-', ' '),
+                j.status || '',
+                j.contract_number || '',
+                j.po_number || '',
+                parseFloat(j.billable_services?.fuelGallons) || '',
+                parseFloat(j.billable_services?.defGallons) || '',
+                j.field_ticket_id || '',
+                j.work_performed || '',
+                j.instructions || ''
+            ]);
+
+            // Equipment rows
+            const equipHeaders = ['Unit #', 'Description', 'Qty', 'Job Date', 'Contract #'];
+            const equipRows = siteEquip.map(e => {
+                const job = allJobs.find(j => j.id === e.job_id);
+                return [
+                    e.equipment_number || '',
+                    e.description || '',
+                    e.quantity || 1,
+                    job?.created_at ? new Date(job.created_at).toLocaleDateString() : '',
+                    job?.contract_number || ''
+                ];
+            });
+
+            // Build workbook
+            const wb = XLSX.utils.book_new();
+
+            const ws1 = XLSX.utils.aoa_to_sheet(summary);
+            XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+
+            const ws2 = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            ws2['!cols'] = headers.map(() => ({ wch: 16 }));
+            XLSX.utils.book_append_sheet(wb, ws2, 'Job History');
+
+            if (equipRows.length) {
+                const ws3 = XLSX.utils.aoa_to_sheet([equipHeaders, ...equipRows]);
+                XLSX.utils.book_append_sheet(wb, ws3, 'Equipment');
+            }
+
+            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_report.xlsx';
+            XLSX.writeFile(wb, filename);
         }
 
         function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
