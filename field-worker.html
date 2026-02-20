@@ -143,7 +143,7 @@
             try {
                 const update = { status };
                 if (status === 'completed') update.completed_at = new Date().toISOString();
-                if (status === 'active') update.started_at = new Date().toISOString();
+                // started_at column doesn't exist on jobs table
 
                 const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
                 if (error) throw error;
