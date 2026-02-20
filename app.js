@@ -117,7 +117,8 @@ const GasRush = (() => {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'rental-dashboard.html' },
                 { label: 'Create Work Order', icon: '➕', href: 'create-job.html', flag: 'page.create_job' },
-                { label: 'Work Orders', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' }
+                { label: 'Work Orders', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' },
+                { label: 'Job Sites', icon: '📍', href: 'job-sites.html', flag: 'page.job_sites' }
             ],
             management: [
                 { label: 'Invoices', icon: '📄', href: 'invoices.html', flag: 'page.invoices' },
@@ -140,7 +141,8 @@ const GasRush = (() => {
         vendor: {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'vendor-dashboard.html' },
-                { label: 'Jobs', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' }
+                { label: 'Jobs', icon: '📋', href: 'work-orders.html', flag: 'page.work_orders' },
+                { label: 'Job Sites', icon: '📍', href: 'job-sites.html', flag: 'page.job_sites' }
             ],
             management: [
                 { label: 'Invoices', icon: '📄', href: 'invoices.html', flag: 'page.invoices' },
@@ -180,7 +182,8 @@ const GasRush = (() => {
             main: [
                 { label: 'Dashboard', icon: '📊', href: 'admin-dashboard.html' },
                 { label: 'Work Orders', icon: '📋', href: 'work-orders.html' },
-                { label: 'Create Work Order', icon: '➕', href: 'create-job.html' }
+                { label: 'Create Work Order', icon: '➕', href: 'create-job.html' },
+                { label: 'Job Sites', icon: '📍', href: 'job-sites.html' }
             ],
             management: [
                 { label: 'Invoices', icon: '📄', href: 'invoices.html' },

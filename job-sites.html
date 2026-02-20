@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Job Sites</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .site-card {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg);
+            padding:20px; cursor:pointer; transition:all .15s;
+        }
+        .site-card:hover { border-color:var(--primary); box-shadow:var(--shadow-md); transform:translateY(-1px); }
+        .site-name { font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:4px; }
+        .site-location { font-size:13px; color:var(--text-secondary); margin-bottom:12px; }
+        .site-stats { display:flex; gap:16px; flex-wrap:wrap; }
+        .site-stat { text-align:center; }
+        .site-stat-value { font-size:20px; font-weight:700; color:var(--text-primary); }
+        .site-stat-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; }
+        .sites-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; }
+        .search-row { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+        .search-row input { max-width:360px; }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Job Sites</h1>
+                <p class="text-muted">All job sites with fuel consumption history</p>
+            </div>
+
+            <div class="stats-grid" id="topStats"></div>
+
+            <div class="search-row">
+                <input type="text" class="form-input" placeholder="Search job sites..." id="searchInput" oninput="renderSites()">
+                <select class="form-select" id="sortBy" style="width:200px" onchange="renderSites()">
+                    <option value="jobs">Most Jobs</option>
+                    <option value="gallons">Most Gallons</option>
+                    <option value="recent">Most Recent</option>
+                    <option value="alpha">A-Z</option>
+                </select>
+            </div>
+
+            <div class="sites-grid" id="sitesGrid">
+                <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Loading...</h3></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        let sites = {};
+        let currentUser;
+
+        (async () => {
+            currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'fieldworker', 'admin'] });
+            if (!currentUser) return;
+            await loadData();
+        })();
+
+        async function loadData() {
+            try {
+                let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
+
+                if (currentUser.role === 'vendor') query = query.eq('assigned_vendor', currentUser.vendor_id);
+                if (currentUser.role === 'fieldworker') query = query.eq('assigned_worker', currentUser.id);
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                // Group by job site name
+                sites = {};
+                for (const job of (data || [])) {
+                    const name = (job.job_site_name || 'Unknown Site').trim();
+                    if (!sites[name]) {
+                        sites[name] = {
+                            name,
+                            city: job.address_city || '',
+                            state: job.address_state || '',
+                            address: job.address_street || '',
+                            jobs: [],
+                            totalFuel: 0,
+                            totalDef: 0,
+                            completed: 0,
+                            lastDate: null
+                        };
+                    }
+                    const s = sites[name];
+                    s.jobs.push(job);
+                    const fuel = parseFloat(job.billable_services?.fuelGallons) || 0;
+                    const def = parseFloat(job.billable_services?.defGallons) || 0;
+                    s.totalFuel += fuel;
+                    s.totalDef += def;
+                    if (job.status === 'completed') s.completed++;
+                    const d = job.created_at ? new Date(job.created_at) : null;
+                    if (d && (!s.lastDate || d > s.lastDate)) s.lastDate = d;
+                }
+
+                // Top stats
+                const allSites = Object.values(sites);
+                const totalJobs = allSites.reduce((s, x) => s + x.jobs.length, 0);
+                const totalFuel = allSites.reduce((s, x) => s + x.totalFuel, 0);
+                const totalDef = allSites.reduce((s, x) => s + x.totalDef, 0);
+                document.getElementById('topStats').innerHTML = `
+                    <div class="stat-card"><div class="stat-label">Total Sites</div><div class="stat-value">${allSites.length}</div></div>
+                    <div class="stat-card"><div class="stat-label">Total Jobs</div><div class="stat-value">${totalJobs}</div></div>
+                    <div class="stat-card"><div class="stat-label">Total Fuel</div><div class="stat-value">${totalFuel.toLocaleString()}</div><div class="stat-sub">gallons</div></div>
+                    <div class="stat-card"><div class="stat-label">Total DEF</div><div class="stat-value">${totalDef.toLocaleString()}</div><div class="stat-sub">gallons</div></div>
+                `;
+
+                renderSites();
+            } catch(e) {
+                console.error(e);
+                document.getElementById('sitesGrid').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Failed to load</h3></div>';
+            }
+        }
+
+        function renderSites() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const sort = document.getElementById('sortBy').value;
+            let list = Object.values(sites);
+
+            if (search) {
+                list = list.filter(s =>
+                    s.name.toLowerCase().includes(search) ||
+                    s.city.toLowerCase().includes(search) ||
+                    s.address.toLowerCase().includes(search)
+                );
+            }
+
+            if (sort === 'jobs') list.sort((a, b) => b.jobs.length - a.jobs.length);
+            else if (sort === 'gallons') list.sort((a, b) => (b.totalFuel + b.totalDef) - (a.totalFuel + a.totalDef));
+            else if (sort === 'recent') list.sort((a, b) => (b.lastDate || 0) - (a.lastDate || 0));
+            else if (sort === 'alpha') list.sort((a, b) => a.name.localeCompare(b.name));
+
+            const grid = document.getElementById('sitesGrid');
+            if (!list.length) {
+                grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>No sites found</h3></div>';
+                return;
+            }
+
+            grid.innerHTML = list.map(s => `
+                <div class="site-card" onclick="window.location.href='job-site-detail.html?site=${encodeURIComponent(s.name)}'">
+                    <div class="site-name">${esc(s.name)}</div>
+                    <div class="site-location">📍 ${esc([s.address, s.city, s.state].filter(Boolean).join(', ') || 'No address')}</div>
+                    <div class="site-stats">
+                        <div class="site-stat"><div class="site-stat-value">${s.jobs.length}</div><div class="site-stat-label">Jobs</div></div>
+                        <div class="site-stat"><div class="site-stat-value">${s.completed}</div><div class="site-stat-label">Completed</div></div>
+                        <div class="site-stat"><div class="site-stat-value">${s.totalFuel.toLocaleString()}</div><div class="site-stat-label">Fuel gal</div></div>
+                        <div class="site-stat"><div class="site-stat-value">${s.totalDef.toLocaleString()}</div><div class="site-stat-label">DEF gal</div></div>
+                        <div class="site-stat"><div class="site-stat-value">${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</div><div class="site-stat-label">Last Activity</div></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    </script>
+</body>
+</html>

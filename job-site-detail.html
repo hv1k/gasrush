@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Job Site Detail</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .back-link { display:inline-flex; align-items:center; gap:6px; font-size:14px; color:var(--text-secondary); margin-bottom:16px; }
+        .back-link:hover { color:var(--primary); }
+        .site-header-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px; margin-bottom:24px; }
+        .site-title { font-size:24px; font-weight:700; margin-bottom:4px; }
+        .site-address { font-size:14px; color:var(--text-secondary); }
+        .timeline { margin-top:8px; }
+        .timeline-item {
+            display:flex; gap:16px; padding:16px 0; border-bottom:1px solid var(--border-light);
+            position:relative;
+        }
+        .timeline-item:last-child { border-bottom:none; }
+        .timeline-date {
+            min-width:100px; font-size:13px; color:var(--text-muted); font-weight:600; padding-top:2px;
+        }
+        .timeline-content { flex:1; }
+        .timeline-type { font-size:14px; font-weight:600; color:var(--text-primary); text-transform:capitalize; margin-bottom:4px; }
+        .timeline-details { font-size:13px; color:var(--text-secondary); line-height:1.6; }
+        .timeline-details span { display:inline-block; margin-right:16px; }
+        .fuel-tag { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
+        .fuel-tag.diesel { background:var(--warning-light); color:var(--warning); }
+        .fuel-tag.def { background:var(--primary-light); color:var(--primary); }
+        .equip-list { margin-top:8px; }
+        .equip-item { font-size:12px; color:var(--text-muted); padding:2px 0; }
+        .filter-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+        .consumption-chart {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg);
+            padding:24px; margin-bottom:24px;
+        }
+        .bar-chart { display:flex; align-items:flex-end; gap:6px; height:160px; padding-top:20px; }
+        .bar-col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:30px; }
+        .bar { width:100%; border-radius:4px 4px 0 0; transition:height .3s; position:relative; }
+        .bar.fuel { background:var(--warning); }
+        .bar.def { background:var(--primary); }
+        .bar-label { font-size:10px; color:var(--text-muted); margin-top:6px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60px; }
+        .bar-value { font-size:10px; color:var(--text-secondary); font-weight:600; margin-bottom:2px; }
+        .chart-legend { display:flex; gap:16px; margin-top:12px; justify-content:center; }
+        .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); }
+        .legend-dot { width:10px; height:10px; border-radius:2px; }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">⛽</div>
+                <span class="brand-name">GasRush</span>
+            </div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <a href="job-sites.html" class="back-link">← Back to Job Sites</a>
+
+            <div class="site-header-card" id="siteHeader">
+                <div class="empty-state"><h3>Loading...</h3></div>
+            </div>
+
+            <div class="stats-grid" id="siteStats"></div>
+
+            <!-- Fuel Consumption Chart -->
+            <div class="consumption-chart" id="chartSection" style="display:none">
+                <div class="card-header">
+                    <h2 class="card-title">Fuel Consumption Over Time</h2>
+                </div>
+                <div class="bar-chart" id="barChart"></div>
+                <div class="chart-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--warning)"></div>Diesel</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--primary)"></div>DEF</div>
+                </div>
+            </div>
+
+            <!-- Job History -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Job History</h2>
+                </div>
+                <div class="filter-row">
+                    <select class="form-select" id="statusFilter" style="width:160px" onchange="renderJobs()">
+                        <option value="">All Status</option>
+                        <option value="completed">Completed</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                    <select class="form-select" id="typeFilter" style="width:160px" onchange="renderJobs()">
+                        <option value="">All Types</option>
+                        <option value="fuel-delivery">Fuel Delivery</option>
+                        <option value="service">Service</option>
+                        <option value="swap">Swap</option>
+                    </select>
+                </div>
+                <div id="jobHistory"></div>
+            </div>
+
+            <!-- Equipment at this site -->
+            <div class="card mt-4" id="equipSection" style="display:none">
+                <div class="card-header">
+                    <h2 class="card-title">Equipment at this Site</h2>
+                </div>
+                <div id="equipList"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        let allJobs = [];
+        let siteEquip = [];
+        const siteName = new URLSearchParams(window.location.search).get('site');
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['rental', 'vendor', 'fieldworker', 'admin'] });
+            if (!user) return;
+            if (!siteName) { window.location.href = 'job-sites.html'; return; }
+            document.title = `GasRush — ${siteName}`;
+            await loadData();
+        })();
+
+        async function loadData() {
+            try {
+                const { data: jobs, error } = await GasRush.db()
+                    .from('jobs')
+                    .select('*')
+                    .eq('job_site_name', siteName)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                allJobs = jobs || [];
+
+                // Load equipment for all job IDs at this site
+                const jobIds = allJobs.map(j => j.id);
+                if (jobIds.length) {
+                    const { data: equip } = await GasRush.db()
+                        .from('equipment')
+                        .select('*')
+                        .in('job_id', jobIds);
+                    siteEquip = equip || [];
+                }
+
+                renderHeader();
+                renderStats();
+                renderChart();
+                renderJobs();
+                renderEquipment();
+            } catch(e) {
+                console.error(e);
+                document.getElementById('siteHeader').innerHTML = '<div class="empty-state"><h3>Failed to load site data</h3></div>';
+            }
+        }
+
+        function renderHeader() {
+            const first = allJobs[0] || {};
+            const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
+            document.getElementById('siteHeader').innerHTML = `
+                <div class="site-title">${esc(siteName)}</div>
+                <div class="site-address">📍 ${esc(addr || 'No address on file')}</div>
+                ${first.customer_name ? `<div style="font-size:14px;color:var(--text-secondary);margin-top:4px">Customer: <strong>${esc(first.customer_name)}</strong></div>` : ''}
+                ${first.contact_name ? `<div style="font-size:13px;color:var(--text-muted)">Contact: ${esc(first.contact_name)} ${esc(first.contact_phone || '')}</div>` : ''}
+            `;
+        }
+
+        function renderStats() {
+            const total = allJobs.length;
+            const completed = allJobs.filter(j => j.status === 'completed').length;
+            const fuel = allJobs.reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons) || 0), 0);
+            const def = allJobs.reduce((s, j) => s + (parseFloat(j.billable_services?.defGallons) || 0), 0);
+            const firstDate = allJobs.length ? new Date(allJobs[allJobs.length - 1].created_at).toLocaleDateString() : '—';
+            const lastDate = allJobs.length ? new Date(allJobs[0].created_at).toLocaleDateString() : '—';
+
+            document.getElementById('siteStats').innerHTML = `
+                <div class="stat-card"><div class="stat-label">Total Jobs</div><div class="stat-value">${total}</div></div>
+                <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value">${completed}</div></div>
+                <div class="stat-card"><div class="stat-label">Total Fuel</div><div class="stat-value">${fuel.toLocaleString()}</div><div class="stat-sub">gallons diesel</div></div>
+                <div class="stat-card"><div class="stat-label">Total DEF</div><div class="stat-value">${def.toLocaleString()}</div><div class="stat-sub">gallons</div></div>
+                <div class="stat-card"><div class="stat-label">First Job</div><div class="stat-value" style="font-size:16px">${firstDate}</div></div>
+                <div class="stat-card"><div class="stat-label">Latest Job</div><div class="stat-value" style="font-size:16px">${lastDate}</div></div>
+            `;
+        }
+
+        function renderChart() {
+            // Group fuel consumption by month
+            const monthly = {};
+            for (const j of allJobs) {
+                const d = new Date(j.created_at);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                if (!monthly[key]) monthly[key] = { fuel: 0, def: 0 };
+                monthly[key].fuel += parseFloat(j.billable_services?.fuelGallons) || 0;
+                monthly[key].def += parseFloat(j.billable_services?.defGallons) || 0;
+            }
+
+            const months = Object.keys(monthly).sort();
+            if (months.length < 1) return;
+
+            document.getElementById('chartSection').style.display = '';
+            const maxVal = Math.max(...months.map(m => Math.max(monthly[m].fuel, monthly[m].def)), 1);
+
+            document.getElementById('barChart').innerHTML = months.map(m => {
+                const d = monthly[m];
+                const fuelH = Math.max((d.fuel / maxVal) * 130, 2);
+                const defH = Math.max((d.def / maxVal) * 130, d.def > 0 ? 2 : 0);
+                const label = new Date(m + '-01').toLocaleDateString('en', { month: 'short', year: '2-digit' });
+                return `<div class="bar-col">
+                    ${d.fuel > 0 ? `<div class="bar-value">${Math.round(d.fuel)}</div>` : ''}
+                    <div class="bar fuel" style="height:${fuelH}px" title="${Math.round(d.fuel)} gal diesel"></div>
+                    ${d.def > 0 ? `<div class="bar def" style="height:${defH}px;margin-top:2px" title="${Math.round(d.def)} gal DEF"></div>` : ''}
+                    <div class="bar-label">${label}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderJobs() {
+            const status = document.getElementById('statusFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            let filtered = allJobs;
+
+            if (status) {
+                if (status === 'active') filtered = filtered.filter(j => ['active', 'assigned', 'in-progress', 'accepted'].includes(j.status));
+                else if (status === 'pending') filtered = filtered.filter(j => ['pending', 'created'].includes(j.status));
+                else filtered = filtered.filter(j => j.status === status);
+            }
+            if (type) filtered = filtered.filter(j => j.job_type === type);
+
+            const container = document.getElementById('jobHistory');
+            if (!filtered.length) {
+                container.innerHTML = '<div class="empty-state" style="padding:32px"><h3>No jobs match filters</h3></div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="timeline">' + filtered.map(j => {
+                const date = j.created_at ? new Date(j.created_at).toLocaleDateString() : '—';
+                const fuel = parseFloat(j.billable_services?.fuelGallons) || 0;
+                const def = parseFloat(j.billable_services?.defGallons) || 0;
+                const status = j.status || 'pending';
+                const bc = status === 'completed' ? 'badge-success' : ['active', 'assigned', 'in-progress', 'accepted'].includes(status) ? 'badge-primary' : status === 'cancelled' ? 'badge-danger' : 'badge-warning';
+                const jobEquip = siteEquip.filter(e => e.job_id === j.id);
+
+                return `<div class="timeline-item">
+                    <div class="timeline-date">${date}</div>
+                    <div class="timeline-content">
+                        <div class="timeline-type">${(j.job_type || 'delivery').replace('-', ' ')} <span class="badge ${bc}" style="font-size:11px;vertical-align:middle">${status}</span></div>
+                        <div class="timeline-details">
+                            ${j.contract_number ? `<span>Contract: <strong>${esc(j.contract_number)}</strong></span>` : ''}
+                            ${j.po_number ? `<span>PO: <strong>${esc(j.po_number)}</strong></span>` : ''}
+                            ${fuel > 0 ? `<span class="fuel-tag diesel">⛽ ${fuel.toLocaleString()} gal diesel</span>` : ''}
+                            ${def > 0 ? `<span class="fuel-tag def">💧 ${def.toLocaleString()} gal DEF</span>` : ''}
+                            ${j.field_ticket_id ? `<span>Ticket: ${esc(j.field_ticket_id)}</span>` : ''}
+                            ${j.work_performed ? `<div style="margin-top:4px;font-style:italic">${esc(j.work_performed)}</div>` : ''}
+                        </div>
+                        ${jobEquip.length ? `<div class="equip-list">${jobEquip.map(e =>
+                            `<div class="equip-item">🔧 ${e.quantity || 1}x ${esc(e.equipment_number || '')} — ${esc(e.description || '')}</div>`
+                        ).join('')}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('') + '</div>';
+        }
+
+        function renderEquipment() {
+            if (!siteEquip.length) return;
+            document.getElementById('equipSection').style.display = '';
+
+            // Deduplicate by equipment_number
+            const unique = {};
+            for (const e of siteEquip) {
+                const key = e.equipment_number || e.description || e.id;
+                if (!unique[key]) unique[key] = { ...e, count: 0 };
+                unique[key].count++;
+            }
+
+            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Unit #</th><th>Description</th><th>Times Serviced</th></tr></thead><tbody>' +
+                Object.values(unique).map(e => `<tr>
+                    <td><strong>${esc(e.equipment_number || '—')}</strong></td>
+                    <td>${esc(e.description || '—')}</td>
+                    <td>${e.count}</td>
+                </tr>`).join('') + '</tbody></table></div>';
+        }
+
+        function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    </script>
+</body>
+</html>
