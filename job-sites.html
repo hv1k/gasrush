@@ -215,18 +215,43 @@
 
             } else if (currentView === 'table') {
                 grid.className = '';
-                let html = '<div class="table-wrapper"><table><thead><tr><th>Site Name</th><th>City</th><th>Jobs</th><th>Completed</th><th>Diesel (gal)</th><th>DEF (gal)</th><th>Last Activity</th></tr></thead><tbody>';
-                for (const s of list) {
+                const pending = s => s.jobs.filter(j => ['pending','created'].includes(j.status)).length;
+                const active = s => s.jobs.filter(j => ['active','assigned','in-progress','accepted'].includes(j.status)).length;
+                let html = `<div class="table-wrapper" style="border-radius:var(--radius-lg);overflow:hidden">
+                <table style="font-size:13px">
+                <thead><tr>
+                    <th style="width:30px">#</th>
+                    <th style="text-align:left">SITE</th>
+                    <th style="text-align:left">CITY</th>
+                    <th style="text-align:right">JOBS</th>
+                    <th style="text-align:right">PENDING</th>
+                    <th style="text-align:right">ACTIVE</th>
+                    <th style="text-align:right">DONE</th>
+                    <th style="text-align:right">DIESEL</th>
+                    <th style="text-align:right">DEF</th>
+                    <th style="text-align:right">TOTAL GAL</th>
+                    <th style="text-align:right">LAST ACTIVITY</th>
+                </tr></thead><tbody>`;
+                list.forEach((s, i) => {
+                    const p = s.jobs.filter(j => ['pending','created'].includes(j.status)).length;
+                    const a = s.jobs.filter(j => ['active','assigned','in-progress','accepted'].includes(j.status)).length;
+                    const total = s.totalFuel + s.totalDef;
+                    const fuelColor = s.totalFuel > 0 ? 'var(--warning)' : 'var(--text-muted)';
+                    const defColor = s.totalDef > 0 ? 'var(--primary)' : 'var(--text-muted)';
                     html += `<tr style="cursor:pointer" onclick="window.location.href='job-site-detail.html?site=${encodeURIComponent(s.name)}'">
-                        <td><strong>${esc(s.name)}</strong></td>
-                        <td>${esc([s.city, s.state].filter(Boolean).join(', '))}</td>
-                        <td>${s.jobs.length}</td>
-                        <td>${s.completed}</td>
-                        <td>${s.totalFuel.toLocaleString()}</td>
-                        <td>${s.totalDef.toLocaleString()}</td>
-                        <td>${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</td>
+                        <td style="color:var(--text-muted);text-align:center">${i + 1}</td>
+                        <td><strong style="color:var(--text-primary)">${esc(s.name)}</strong></td>
+                        <td style="color:var(--text-secondary)">${esc([s.city, s.state].filter(Boolean).join(', '))}</td>
+                        <td style="text-align:right;font-weight:600">${s.jobs.length}</td>
+                        <td style="text-align:right;color:${p > 0 ? 'var(--warning)' : 'var(--text-muted)'}">${p}</td>
+                        <td style="text-align:right;color:${a > 0 ? 'var(--primary)' : 'var(--text-muted)'}">${a}</td>
+                        <td style="text-align:right;color:${s.completed > 0 ? 'var(--success)' : 'var(--text-muted)'}">${s.completed}</td>
+                        <td style="text-align:right;color:${fuelColor};font-weight:600">${s.totalFuel > 0 ? s.totalFuel.toLocaleString() : '—'}</td>
+                        <td style="text-align:right;color:${defColor};font-weight:600">${s.totalDef > 0 ? s.totalDef.toLocaleString() : '—'}</td>
+                        <td style="text-align:right;font-weight:700;color:var(--text-primary)">${total > 0 ? total.toLocaleString() : '—'}</td>
+                        <td style="text-align:right;color:var(--text-secondary)">${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</td>
                     </tr>`;
-                }
+                });
                 html += '</tbody></table></div>';
                 grid.innerHTML = html;
             }
