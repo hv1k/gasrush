@@ -219,6 +219,28 @@
             html += equipHtml;
             html += historyHtml;
 
+            // Show audit log for admin
+            if (currentUser.role === 'admin' || currentUser.role === 'vendor') {
+                try {
+                    const { data: logs } = await GasRush.db().from('audit_logs').select('*')
+                        .eq('target_type', 'job').eq('target_id', id)
+                        .order('created_at', { ascending: false }).limit(20);
+                    if (logs && logs.length) {
+                        html += `<div style="margin-top:16px"><label class="form-label" style="font-size:13px;color:var(--primary)">📋 Change Log</label>
+                            <div style="margin-top:6px;max-height:200px;overflow-y:auto">
+                            ${logs.map(l => {
+                                const t = new Date(l.created_at).toLocaleString();
+                                const d = l.details || {};
+                                let desc = l.action;
+                                if (l.action === 'status_change') desc = `Status: ${d.from} → ${d.to}`;
+                                else if (l.action === 'assign_worker') desc = `Assigned to ${d.worker_name}`;
+                                return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text-muted)">${t}</span> — <strong>${esc(l.user_name||'System')}</strong>: ${desc}</div>`;
+                            }).join('')}
+                            </div></div>`;
+                    }
+                } catch(e) { console.warn('Audit log load error:', e); }
+            }
+
             // Role-based actions
             html += '<div class="actions-bar">';
 
@@ -242,6 +264,11 @@
                 html += `<button class="btn btn-danger" onclick="updateJobStatus('${id}','cancelled')" style="margin-left:auto">Cancel Order</button>`;
             }
 
+            // Edit Job (vendor/admin can change status back)
+            if (currentUser.role === 'vendor' || currentUser.role === 'admin') {
+                html += `<button class="btn btn-secondary" onclick="editJobStatus('${id}','${status}')">✏️ Edit Status</button>`;
+            }
+
             html += `<button class="btn btn-secondary" onclick="closeModal()" style="margin-left:auto">Close</button>`;
             html += '</div>';
 
@@ -249,16 +276,46 @@
             modal.classList.add('active');
         }
 
+        function editJobStatus(id, currentStatus) {
+            const statuses = ['pending', 'assigned', 'active', 'in-progress', 'completed', 'cancelled'];
+            let html = `<div style="padding:8px 0"><p style="margin-bottom:12px;color:var(--text-secondary)">Change job status:</p>`;
+            html += statuses.map(s => {
+                const selected = s === currentStatus ? 'btn-primary' : 'btn-secondary';
+                return `<button class="btn ${selected}" style="margin:4px" onclick="updateJobStatus('${id}','${s}')">${s === currentStatus ? '● ' : ''}${s}</button>`;
+            }).join('');
+            html += `<div style="margin-top:16px"><button class="btn btn-secondary" onclick="viewJob('${id}')">← Back</button></div></div>`;
+            document.getElementById('modalTitle').textContent = 'Edit Job Status';
+            document.getElementById('modalBody').innerHTML = html;
+        }
+
+        async function logAudit(jobId, action, details) {
+            try {
+                await GasRush.db().from('audit_logs').insert({
+                    user_id: currentUser.id?.length === 36 ? currentUser.id : null,
+                    user_name: currentUser.name || currentUser.email,
+                    action: action,
+                    target_type: 'job',
+                    target_id: jobId,
+                    details: details
+                });
+            } catch(e) { console.warn('Audit log failed:', e); }
+        }
+
         async function updateJobStatus(id, newStatus) {
             try {
+                const job = allOrders.find(j => j.id === id);
+                const oldStatus = job?.status || 'unknown';
                 const update = { status: newStatus };
                 if (newStatus === 'assigned') update.assigned_vendor = currentUser.vendor_id || currentUser.id;
                 if (newStatus === 'completed') update.completed_at = new Date().toISOString();
+                if (newStatus !== 'completed') update.completed_at = null;
 
                 const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
                 if (error) throw error;
 
-                const job = allOrders.find(j => j.id === id);
+                // Log the change
+                await logAudit(id, 'status_change', { from: oldStatus, to: newStatus });
+
                 if (job) Object.assign(job, update);
                 filterOrders();
                 viewJob(id);
@@ -392,6 +449,8 @@
                     status: 'assigned'
                 }).eq('id', jobId);
                 if (error) throw error;
+
+                await logAudit(jobId, 'assign_worker', { worker_id: workerId, worker_name: workerName });
 
                 const job = allOrders.find(j => j.id === jobId);
                 if (job) { job.assigned_worker = workerId; job.status = 'assigned'; }

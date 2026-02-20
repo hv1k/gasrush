@@ -145,8 +145,24 @@
                 if (status === 'completed') update.completed_at = new Date().toISOString();
                 // started_at column doesn't exist on jobs table
 
+                const job = allJobs.find(j => j.id === id);
+                const oldStatus = job?.status || 'unknown';
+
                 const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
                 if (error) throw error;
+
+                // Audit log
+                try {
+                    await GasRush.db().from('audit_logs').insert({
+                        user_id: currentUser.id?.length === 36 ? currentUser.id : null,
+                        user_name: currentUser.name || currentUser.email,
+                        action: 'status_change',
+                        target_type: 'job',
+                        target_id: id,
+                        details: { from: oldStatus, to: status }
+                    });
+                } catch(e2) { console.warn('Audit log failed:', e2); }
+
                 await loadData();
             } catch(e) {
                 alert('Failed to update: ' + (e.message || e));
