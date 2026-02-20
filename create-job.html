@@ -369,13 +369,13 @@
             if (!currentUser) return;
             // Load vendors into dropdown
             try {
-                const { data } = await GasRush.db().from('users').select('id,name,email').eq('role', 'vendor');
+                const { data } = await GasRush.db().from('vendors').select('id,name,company');
                 const sel = document.getElementById('vendorSelect');
                 if (data && data.length) {
                     data.forEach(v => {
                         const opt = document.createElement('option');
                         opt.value = v.id;
-                        opt.textContent = v.name + (v.email ? ` (${v.email})` : '');
+                        opt.textContent = v.name || v.company;
                         sel.appendChild(opt);
                     });
                 }
