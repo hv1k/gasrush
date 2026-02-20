@@ -104,16 +104,14 @@
 
         function renderJobs(jobs) {
             const container = document.getElementById('jobsContainer');
-            const activeJobs = jobs.filter(j => j.status !== 'completed');
-            const completedJobs = jobs.filter(j => j.status === 'completed');
-            const sorted = [...activeJobs, ...completedJobs];
+            const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
 
-            if (sorted.length === 0) {
+            if (activeJobs.length === 0) {
                 container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🚛</div><h3>No jobs assigned</h3><p>Check back later for new assignments</p></div>`;
                 return;
             }
 
-            container.innerHTML = sorted.map(job => {
+            container.innerHTML = activeJobs.map(job => {
                 const status = job.status || 'pending';
                 const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
                 const loc = [job.address_street, job.address_city, job.address_state].filter(Boolean).join(', ') || '—';
