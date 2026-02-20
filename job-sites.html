@@ -18,8 +18,16 @@
         .site-stat-value { font-size:20px; font-weight:700; color:var(--text-primary); }
         .site-stat-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; }
         .sites-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; }
-        .search-row { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+        .search-row { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; align-items:center; }
         .search-row input { max-width:360px; }
+        .view-toggle { display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; }
+        .view-btn {
+            padding:8px 14px; font-size:13px; font-family:var(--font); cursor:pointer;
+            border:none; background:var(--bg-card); color:var(--text-secondary); transition:all .15s;
+        }
+        .view-btn:not(:last-child) { border-right:1px solid var(--border); }
+        .view-btn.active { background:var(--primary); color:white; }
+        .view-btn:hover:not(.active) { background:var(--bg-hover); }
     </style>
 </head>
 <body>
@@ -49,6 +57,11 @@
                     <option value="recent">Most Recent</option>
                     <option value="alpha">A-Z</option>
                 </select>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="viewCards" onclick="setView('cards')">◻️ Cards</button>
+                    <button class="view-btn" id="viewList" onclick="setView('list')">☰ List</button>
+                    <button class="view-btn" id="viewTable" onclick="setView('table')">📊 Table</button>
+                </div>
             </div>
 
             <div class="sites-grid" id="sitesGrid">
@@ -127,7 +140,16 @@
             }
         }
 
-        function renderSites() {
+        let currentView = 'cards';
+
+        function setView(view) {
+            currentView = view;
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+            renderSites();
+        }
+
+        function getFilteredSites() {
             const search = document.getElementById('searchInput').value.toLowerCase();
             const sort = document.getElementById('sortBy').value;
             let list = Object.values(sites);
@@ -145,25 +167,69 @@
             else if (sort === 'recent') list.sort((a, b) => (b.lastDate || 0) - (a.lastDate || 0));
             else if (sort === 'alpha') list.sort((a, b) => a.name.localeCompare(b.name));
 
+            return list;
+        }
+
+        function renderSites() {
+            const list = getFilteredSites();
             const grid = document.getElementById('sitesGrid');
+
             if (!list.length) {
                 grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>No sites found</h3></div>';
                 return;
             }
 
-            grid.innerHTML = list.map(s => `
-                <div class="site-card" onclick="window.location.href='job-site-detail.html?site=${encodeURIComponent(s.name)}'">
-                    <div class="site-name">${esc(s.name)}</div>
-                    <div class="site-location">📍 ${esc([s.address, s.city, s.state].filter(Boolean).join(', ') || 'No address')}</div>
-                    <div class="site-stats">
-                        <div class="site-stat"><div class="site-stat-value">${s.jobs.length}</div><div class="site-stat-label">Jobs</div></div>
-                        <div class="site-stat"><div class="site-stat-value">${s.completed}</div><div class="site-stat-label">Completed</div></div>
-                        <div class="site-stat"><div class="site-stat-value">${s.totalFuel.toLocaleString()}</div><div class="site-stat-label">Fuel gal</div></div>
-                        <div class="site-stat"><div class="site-stat-value">${s.totalDef.toLocaleString()}</div><div class="site-stat-label">DEF gal</div></div>
-                        <div class="site-stat"><div class="site-stat-value">${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</div><div class="site-stat-label">Last Activity</div></div>
+            if (currentView === 'cards') {
+                grid.className = 'sites-grid';
+                grid.innerHTML = list.map(s => `
+                    <div class="site-card" onclick="window.location.href='job-site-detail.html?site=${encodeURIComponent(s.name)}'">
+                        <div class="site-name">${esc(s.name)}</div>
+                        <div class="site-location">📍 ${esc([s.address, s.city, s.state].filter(Boolean).join(', ') || 'No address')}</div>
+                        <div class="site-stats">
+                            <div class="site-stat"><div class="site-stat-value">${s.jobs.length}</div><div class="site-stat-label">Jobs</div></div>
+                            <div class="site-stat"><div class="site-stat-value">${s.completed}</div><div class="site-stat-label">Completed</div></div>
+                            <div class="site-stat"><div class="site-stat-value">${s.totalFuel.toLocaleString()}</div><div class="site-stat-label">Fuel gal</div></div>
+                            <div class="site-stat"><div class="site-stat-value">${s.totalDef.toLocaleString()}</div><div class="site-stat-label">DEF gal</div></div>
+                            <div class="site-stat"><div class="site-stat-value">${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</div><div class="site-stat-label">Last Activity</div></div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+
+            } else if (currentView === 'list') {
+                grid.className = '';
+                grid.innerHTML = list.map(s => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--bg-card);transition:background .1s"
+                         onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='var(--bg-card)'"
+                         onclick="window.location.href='job-site-detail.html?site=${encodeURIComponent(s.name)}'">
+                        <div style="flex:1;min-width:0">
+                            <div style="font-weight:600;font-size:14px;color:var(--text-primary)">${esc(s.name)}</div>
+                            <div style="font-size:12px;color:var(--text-muted)">${esc([s.city, s.state].filter(Boolean).join(', '))}</div>
+                        </div>
+                        <div style="display:flex;gap:24px;font-size:13px;color:var(--text-secondary);flex-shrink:0">
+                            <span><strong>${s.jobs.length}</strong> jobs</span>
+                            <span><strong>${s.totalFuel.toLocaleString()}</strong> gal</span>
+                            <span>${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+            } else if (currentView === 'table') {
+                grid.className = '';
+                let html = '<div class="table-wrapper"><table><thead><tr><th>Site Name</th><th>City</th><th>Jobs</th><th>Completed</th><th>Diesel (gal)</th><th>DEF (gal)</th><th>Last Activity</th></tr></thead><tbody>';
+                for (const s of list) {
+                    html += `<tr style="cursor:pointer" onclick="window.location.href='job-site-detail.html?site=${encodeURIComponent(s.name)}'">
+                        <td><strong>${esc(s.name)}</strong></td>
+                        <td>${esc([s.city, s.state].filter(Boolean).join(', '))}</td>
+                        <td>${s.jobs.length}</td>
+                        <td>${s.completed}</td>
+                        <td>${s.totalFuel.toLocaleString()}</td>
+                        <td>${s.totalDef.toLocaleString()}</td>
+                        <td>${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</td>
+                    </tr>`;
+                }
+                html += '</tbody></table></div>';
+                grid.innerHTML = html;
+            }
         }
 
         function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
