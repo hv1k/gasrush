@@ -40,8 +40,18 @@ export default async function handler(req, res) {
         // Generate simple token
         const token = crypto.randomBytes(32).toString('hex');
 
-        // Return user (without password)
+        // If vendor, fetch vendor record ID
         const { password: _, ...safeUser } = user;
+        if (safeUser.role === 'vendor') {
+            const { data: vendor } = await supabase
+                .from('vendors')
+                .select('id')
+                .eq('user_id', safeUser.id)
+                .single();
+            if (vendor) safeUser.vendor_id = vendor.id;
+        }
+
+        // Return user (without password)
         return res.status(200).json({
             success: true,
             user: { ...safeUser, token }
