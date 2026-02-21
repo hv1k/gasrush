@@ -324,38 +324,24 @@
 
         function completeJob(id) {
             const job = allOrders.find(j => j.id === id);
-            const reqFuel = job?.billable_services?.fuelGallons || '';
-            const reqDef = job?.billable_services?.defGallons || '';
 
             let html = `
-                <p class="text-muted" style="font-size:14px;margin-bottom:16px">Enter actual delivery data to complete this job:</p>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Diesel Delivered (gal)</label>
-                        <input type="number" step="0.1" id="cmpFuel" class="form-input" value="${reqFuel}" placeholder="0">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">DEF Delivered (gal)</label>
-                        <input type="number" step="0.1" id="cmpDef" class="form-input" value="${reqDef}" placeholder="0">
-                    </div>
+                <div style="margin-bottom:16px">
+                    <p style="font-size:15px;margin-bottom:12px">Are you sure you want to mark this job as <strong>completed</strong>?</p>
+                    <p style="font-size:13px;color:var(--text-muted)">This will close the job and no more deliveries can be submitted by field workers.</p>
+                </div>
+                <div style="background:var(--bg-secondary);border-radius:8px;padding:16px;margin-bottom:16px">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--text-muted)">Completed by</span><strong>${esc(currentUser.name || currentUser.email)}</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--text-muted)">Role</span><strong style="text-transform:capitalize">${currentUser.role}</strong></div>
+                    <div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Date</span><strong>${new Date().toLocaleString()}</strong></div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Work Performed / Notes</label>
-                    <textarea id="cmpNotes" class="form-textarea" rows="3" placeholder="Describe work performed, equipment status, etc."></textarea>
-                </div>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Field Ticket ID</label>
-                        <input type="text" id="cmpTicket" class="form-input" placeholder="FT-001">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Ticket Type</label>
-                        <input type="text" id="cmpTicketType" class="form-input" placeholder="DELIVERY">
-                    </div>
+                    <label class="form-label">Reason / Notes (optional)</label>
+                    <textarea id="cmpNotes" class="form-textarea" rows="2" placeholder="Any closing notes..."></textarea>
                 </div>
                 <div class="flex gap-2" style="margin-top:16px">
-                    <button class="btn btn-success" onclick="submitComplete('${id}')">✅ Complete Job</button>
-                    <button class="btn btn-secondary" onclick="viewJob('${id}')">Back</button>
+                    <button class="btn btn-success" onclick="submitComplete('${id}')">✅ Confirm Complete</button>
+                    <button class="btn btn-secondary" onclick="viewJob('${id}')">Cancel</button>
                 </div>`;
 
             document.getElementById('modalTitle').textContent = 'Complete Job — ' + (job?.job_site_name || '');
@@ -365,45 +351,27 @@
         async function submitComplete(id) {
             try {
                 const job = allOrders.find(j => j.id === id);
-                const fuel = parseFloat(document.getElementById('cmpFuel').value) || 0;
-                const def = parseFloat(document.getElementById('cmpDef').value) || 0;
-                const notes = document.getElementById('cmpNotes').value || null;
-                const ticketId = document.getElementById('cmpTicket').value || null;
-                const ticketType = document.getElementById('cmpTicketType').value || null;
-
-                const bs = { ...(job?.billable_services || {}), fuelGallons: fuel || null, defGallons: def || null };
+                const notes = document.getElementById('cmpNotes')?.value?.trim() || null;
 
                 const update = {
                     status: 'completed',
-                    completed_at: new Date().toISOString(),
-                    billable_services: bs,
-                    work_performed: notes,
-                    field_ticket_id: ticketId,
-                    ticket_type: ticketType,
-                    ticket_status: 'COMPLETED'
+                    completed_at: new Date().toISOString()
                 };
 
                 const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
                 if (error) throw error;
 
-                // Auto-create invoice
-                try {
-                    await GasRush.db().from('invoices').insert({
-                        job_id: id,
-                        vendor_id: job?.assigned_vendor || currentUser.vendor_id,
-                        amount: ((fuel * 3.50) + (def * 2.50)).toFixed(2),
-                        status: 'pending',
-                        created_at: new Date().toISOString(),
-                        description: `${job?.job_site_name || 'Job'} — ${fuel} gal diesel, ${def} gal DEF`
-                    });
-                } catch(ie) {
-                    console.warn('Invoice creation failed:', ie);
-                }
+                // Log who completed it
+                await logAudit(id, 'job_completed', {
+                    completed_by: currentUser.name || currentUser.email,
+                    role: currentUser.role,
+                    notes: notes
+                });
 
                 if (job) Object.assign(job, update);
                 filterOrders();
                 closeModal();
-                alert(`Job completed — ${fuel} gal diesel, ${def} gal DEF. Invoice created.`);
+                alert('Job marked as completed.');
             } catch(e) {
                 alert('Failed: ' + e.message);
             }
