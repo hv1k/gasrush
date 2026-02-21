@@ -36,18 +36,24 @@
                 </div>
             </div>
 
+            <!-- Sub-tabs -->
+            <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">
+                <button class="wo-tab active" data-tab="pending" onclick="switchTab('pending')">📥 Pending <span id="countPending" class="wo-tab-count">0</span></button>
+                <button class="wo-tab" data-tab="active" onclick="switchTab('active')">🔥 Active <span id="countActive" class="wo-tab-count">0</span></button>
+                <button class="wo-tab" data-tab="completed" onclick="switchTab('completed')">✅ Completed <span id="countCompleted" class="wo-tab-count">0</span></button>
+            </div>
+            <style>
+                .wo-tab { background:none; border:none; padding:12px 20px; font-size:15px; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
+                .wo-tab:hover { color:var(--text-primary); }
+                .wo-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+                .wo-tab-count { background:var(--bg-tertiary); padding:2px 8px; border-radius:10px; font-size:12px; margin-left:6px; }
+                .wo-tab.active .wo-tab-count { background:var(--primary); color:#fff; }
+            </style>
+
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">All Work Orders</h2>
-                    <div class="flex gap-2">
-                        <input type="text" class="form-input" placeholder="Search..." id="searchInput" style="width:200px" oninput="filterOrders()">
-                        <select class="form-select" id="statusFilter" style="width:160px" onchange="filterOrders()">
-                            <option value="">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="active">Active / Assigned</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                    </div>
+                    <h2 class="card-title" id="tabTitle">Pending Orders</h2>
+                    <input type="text" class="form-input" placeholder="Search..." id="searchInput" style="width:200px" oninput="filterOrders()">
                 </div>
                 <div id="ordersContainer">
                     <div class="empty-state"><div class="empty-state-icon">📋</div><h3>Loading...</h3></div>
@@ -98,6 +104,7 @@
                 const { data, error } = await query;
                 if (error) throw error;
                 allOrders = data || [];
+                updateCounts();
                 filterOrders();
             } catch(e) {
                 console.error('Load failed:', e);
@@ -105,14 +112,32 @@
             }
         }
 
+        let activeTab = 'pending';
+        const tabTitles = { pending: 'Pending Orders', active: 'Active Jobs', completed: 'Completed Jobs' };
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.wo-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+            document.getElementById('tabTitle').textContent = tabTitles[tab];
+            filterOrders();
+        }
+
+        function updateCounts() {
+            const pending = allOrders.filter(j => ['pending','created'].includes(j.status)).length;
+            const active = allOrders.filter(j => ['active','assigned'].includes(j.status)).length;
+            const completed = allOrders.filter(j => j.status === 'completed').length;
+            document.getElementById('countPending').textContent = pending;
+            document.getElementById('countActive').textContent = active;
+            document.getElementById('countCompleted').textContent = completed;
+        }
+
         function filterOrders() {
             const search = document.getElementById('searchInput').value.toLowerCase();
-            const status = document.getElementById('statusFilter').value;
             let filtered = allOrders;
 
-            if (status === 'pending') filtered = filtered.filter(j => ['pending','created'].includes(j.status));
-            else if (status === 'active') filtered = filtered.filter(j => ['active','assigned'].includes(j.status));
-            else if (status === 'completed') filtered = filtered.filter(j => j.status === 'completed');
+            if (activeTab === 'pending') filtered = filtered.filter(j => ['pending','created'].includes(j.status));
+            else if (activeTab === 'active') filtered = filtered.filter(j => ['active','assigned'].includes(j.status));
+            else if (activeTab === 'completed') filtered = filtered.filter(j => j.status === 'completed');
 
             if (search) {
                 filtered = filtered.filter(j =>
