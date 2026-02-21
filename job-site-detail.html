@@ -360,74 +360,80 @@
             const wb = XLSX.utils.book_new();
             const first = allJobs[0] || {};
             const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
-
-            // Use filtered deliveries for export
             const exportDeliveries = getFilteredDeliveries();
-            const totalDiesel = exportDeliveries.reduce((s, d) => s + (parseFloat(d.gallons) || 0), 0);
-            const totalDef = exportDeliveries.reduce((s, d) => s + (parseFloat(d.def_gallons) || 0), 0);
-            const dateFilter = document.getElementById('deliveryDateFilter')?.value;
 
-            // ── Sheet 1: Summary ──
-            const summary = [
-                ['', '', siteName],
-                [],
-                ['Site Information'],
-                ['Address', addr],
-                ['Customer', first.customer_name || ''],
-                ['Contact', first.contact_name || ''],
-                ['Phone', first.contact_phone || ''],
-                ['Contract #', first.contract_number || ''],
-                ['PO #', first.po_number || ''],
-                [],
-                ['Fuel Summary' + (dateFilter ? ` (${new Date(dateFilter+'T00:00').toLocaleDateString()})` : ' (All Time)')],
-                ['Total Deliveries', exportDeliveries.length],
-                ['Total Diesel (gal)', totalDiesel],
-                ['Total DEF (gal)', totalDef],
-                ['Total Equipment Units', siteEquip.length],
-                [],
-                ['Report Generated', new Date().toLocaleString()],
-            ];
-            const ws1 = XLSX.utils.aoa_to_sheet(summary);
-            ws1['!cols'] = [{ wch: 22 }, { wch: 45 }, { wch: 30 }];
-            XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+            // Build rows: Header info rows 1-4, then column headers, then delivery data
+            const rows = [];
 
-            // ── Sheet 2: Equipment ──
-            if (siteEquip.length) {
-                const eqData = [['Unit #', 'Description', 'QTY']];
-                siteEquip.forEach(e => {
-                    eqData.push([e.equipment_number || '—', e.description || '', e.quantity || 1]);
-                });
-                const ws2 = XLSX.utils.aoa_to_sheet(eqData);
-                ws2['!cols'] = [{ wch: 16 }, { wch: 35 }, { wch: 8 }];
-                XLSX.utils.book_append_sheet(wb, ws2, 'Equipment');
+            // Row 1: CUSTOMER NAME header + column headers
+            rows.push(['CUSTOMER NAME', 'INVOICE NUMBER', 'DATE', 'RD99 DIESEL RATE', 'RD99 DIESEL GALLONS', 'DEF RATE', 'DEF GALLONS', 'DELIVERY', 'TOTAL']);
+            // Row 2: ADDRESS
+            rows.push(['ADDRESS']);
+            // Row 3: UNIT #
+            rows.push(['UNIT #']);
+            // Row 4: PO#
+            rows.push(['PO#']);
+
+            // Blank separator row
+            rows.push([]);
+
+            // One row per delivery, grouped by unit
+            const unitDeliveries = {};
+            for (const d of exportDeliveries) {
+                const unit = d.unit_number || 'Unknown';
+                if (!unitDeliveries[unit]) unitDeliveries[unit] = [];
+                unitDeliveries[unit].push(d);
             }
 
-            // ── Sheet 3: Delivery History ──
-            if (exportDeliveries.length) {
-                const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Notes']];
-                exportDeliveries.forEach(d => {
+            for (const [unit, dels] of Object.entries(unitDeliveries)) {
+                for (let i = 0; i < dels.length; i++) {
+                    const d = dels[i];
                     const dt = d.timestamp ? new Date(d.timestamp) : null;
-                    delData.push([
+                    const diesel = parseFloat(d.gallons) || 0;
+                    const def = parseFloat(d.def_gallons) || 0;
+                    const row = [
+                        i === 0 ? (first.customer_name || '') : '',  // Customer name on first row per unit
+                        '',  // Invoice number (fill manually or from invoices)
                         dt ? dt.toLocaleDateString() : '',
-                        dt ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-                        d.delivered_by_name || '',
-                        d.unit_number || '',
-                        parseFloat(d.gallons) || 0,
-                        parseFloat(d.def_gallons) || 0,
-                        d.unit_hours || '',
-                        d.notes || ''
-                    ]);
-                });
-                // Totals row
-                delData.push([]);
-                delData.push(['', '', '', 'TOTALS', totalDiesel, totalDef, '', '']);
-
-                const ws3 = XLSX.utils.aoa_to_sheet(delData);
-                ws3['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
-                XLSX.utils.book_append_sheet(wb, ws3, 'Delivery History');
+                        '',  // RD99 diesel rate (fill manually)
+                        diesel || '',
+                        '',  // DEF rate (fill manually)
+                        def || '',
+                        i === 0 ? (d.delivered_by_name || '') : '',  // Driver
+                        ''   // Total (formula or manual)
+                    ];
+                    // Fill address/unit/PO on first row
+                    if (i === 0) {
+                        row[0] = first.customer_name || '';
+                    }
+                    rows.push(row);
+                }
+                // After each unit group, add a blank row
+                rows.push([]);
             }
 
-            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_report.xlsx';
+            // Now fill in rows 2-4 column A values with actual data
+            if (rows.length > 1) rows[1][0] = addr;
+            // Fill unit # for each unit group
+            let unitList = Object.keys(unitDeliveries).join(', ');
+            if (rows.length > 2) rows[2][0] = unitList;
+            if (rows.length > 3) rows[3][0] = first.po_number || '';
+
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [
+                { wch: 28 },  // A: Customer Name
+                { wch: 18 },  // B: Invoice Number
+                { wch: 12 },  // C: Date
+                { wch: 18 },  // D: RD99 Diesel Rate
+                { wch: 22 },  // E: RD99 Diesel Gallons
+                { wch: 12 },  // F: DEF Rate
+                { wch: 14 },  // G: DEF Gallons
+                { wch: 14 },  // H: Delivery
+                { wch: 10 },  // I: Total
+            ];
+            XLSX.utils.book_append_sheet(wb, ws, 'Invoice');
+
+            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_invoice.xlsx';
             XLSX.writeFile(wb, filename);
         }
 
