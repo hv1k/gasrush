@@ -94,6 +94,20 @@
                 const { data, error } = await query;
                 if (error) throw error;
 
+                // Get all job IDs to fetch deliveries
+                const jobIds = (data || []).map(j => j.id);
+                let deliveriesByJob = {};
+                if (jobIds.length > 0) {
+                    const { data: deliveries } = await window.__supabase
+                        .from('deliveries')
+                        .select('job_id, gallons, def_gallons, timestamp')
+                        .in('job_id', jobIds);
+                    for (const d of (deliveries || [])) {
+                        if (!deliveriesByJob[d.job_id]) deliveriesByJob[d.job_id] = [];
+                        deliveriesByJob[d.job_id].push(d);
+                    }
+                }
+
                 // Group by job site name
                 sites = {};
                 for (const job of (data || [])) {
@@ -113,13 +127,19 @@
                     }
                     const s = sites[name];
                     s.jobs.push(job);
-                    const fuel = parseFloat(job.billable_services?.fuelGallons) || 0;
-                    const def = parseFloat(job.billable_services?.defGallons) || 0;
-                    s.totalFuel += fuel;
-                    s.totalDef += def;
+                    // Sum from actual deliveries
+                    const jobDeliveries = deliveriesByJob[job.id] || [];
+                    for (const del of jobDeliveries) {
+                        s.totalFuel += parseFloat(del.gallons) || 0;
+                        s.totalDef += parseFloat(del.def_gallons) || 0;
+                        const dt = del.timestamp ? new Date(del.timestamp) : null;
+                        if (dt && (!s.lastDate || dt > s.lastDate)) s.lastDate = dt;
+                    }
                     if (job.status === 'completed') s.completed++;
-                    const d = job.created_at ? new Date(job.created_at) : null;
-                    if (d && (!s.lastDate || d > s.lastDate)) s.lastDate = d;
+                    if (!s.lastDate) {
+                        const d = job.created_at ? new Date(job.created_at) : null;
+                        if (d && (!s.lastDate || d > s.lastDate)) s.lastDate = d;
+                    }
                 }
 
                 // Top stats
