@@ -105,7 +105,6 @@ const GasRush = (() => {
                 { label: 'Job Sites', icon: '📍', href: 'job-sites.html', flag: 'page.job_sites' }
             ],
             management: [
-                { label: 'Invoices', icon: '📄', href: 'invoices.html', flag: 'page.invoices' },
                 { label: 'Contracts', icon: '📝', href: 'contracts.html', flag: 'page.contracts' },
                 { label: 'Equipment', icon: '⚙️', href: 'equipment.html', flag: 'page.equipment' },
                 { label: 'Vendor Comparison', icon: '📊', href: 'vendor-comparison.html', flag: 'page.vendor_comparison' },
@@ -129,7 +128,6 @@ const GasRush = (() => {
                 { label: 'Job Sites', icon: '📍', href: 'job-sites.html', flag: 'page.job_sites' }
             ],
             management: [
-                { label: 'Invoices', icon: '📄', href: 'invoices.html', flag: 'page.invoices' },
                 { label: 'Contracts', icon: '📝', href: 'contracts.html', flag: 'page.contracts' },
                 { label: 'Equipment', icon: '⚙️', href: 'equipment.html', flag: 'page.equipment' }
             ],
@@ -168,7 +166,6 @@ const GasRush = (() => {
                 { label: 'Job Sites', icon: '📍', href: 'job-sites.html' }
             ],
             management: [
-                { label: 'Invoices', icon: '📄', href: 'invoices.html' },
                 { label: 'Contracts', icon: '📝', href: 'contracts.html' },
                 { label: 'Equipment', icon: '⚙️', href: 'equipment.html' },
                 { label: 'Companies', icon: '🏢', href: 'companies.html' },
