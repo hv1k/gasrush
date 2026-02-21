@@ -132,7 +132,7 @@
                     <div class="job-card-detail">📍 ${esc(loc)}</div>
                     ${job.customer_name ? `<div class="job-card-detail">👤 ${esc(job.customer_name)}</div>` : ''}
                     ${job.contact_name ? `<div class="job-card-detail">📞 ${esc(job.contact_name)} ${esc(job.contact_phone||'')}</div>` : ''}
-                    ${job.instructions ? `<div class="job-card-detail" style="margin-top:8px;font-style:italic;font-size:13px">${esc(job.instructions).substring(0,120)}${job.instructions.length > 120 ? '...' : ''}</div>` : ''}`;
+`;
 
                 // ASSIGNED → Show Start button only
                 if (isAssigned) {
