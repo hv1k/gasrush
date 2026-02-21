@@ -63,8 +63,12 @@
 
             <!-- Delivery History -->
             <div class="card mt-4" id="deliverySection" style="display:none">
-                <div class="card-header">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
                     <h2 class="card-title">Delivery History</h2>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input type="date" id="deliveryDateFilter" class="form-input" style="width:160px;padding:8px" onchange="renderDeliveries()">
+                        <button class="btn btn-secondary" style="padding:8px 12px;font-size:13px" onclick="document.getElementById('deliveryDateFilter').value='';renderDeliveries()">All</button>
+                    </div>
                 </div>
                 <div id="deliveryList"></div>
             </div>
@@ -158,12 +162,23 @@
             `;
         }
 
+        function getFilteredDeliveries() {
+            const dateVal = document.getElementById('deliveryDateFilter')?.value;
+            if (!dateVal) return siteDeliveries;
+            return siteDeliveries.filter(d => d.timestamp && d.timestamp.startsWith(dateVal));
+        }
+
         function renderDeliveries() {
             if (!siteDeliveries.length) return;
             document.getElementById('deliverySection').style.display = '';
+            const filtered = getFilteredDeliveries();
             const list = document.getElementById('deliveryList');
+            if (!filtered.length) {
+                list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">No deliveries for selected date</div>';
+                return;
+            }
             let h = '<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th></tr></thead><tbody>';
-            siteDeliveries.forEach(d => {
+            filtered.forEach(d => {
                 const date = d.timestamp ? new Date(d.timestamp).toLocaleString() : '—';
                 h += `<tr>
                     <td>${date}</td>
@@ -203,9 +218,11 @@
             const first = allJobs[0] || {};
             const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
 
-            // Totals from deliveries
-            const totalDiesel = siteDeliveries.reduce((s, d) => s + (parseFloat(d.gallons) || 0), 0);
-            const totalDef = siteDeliveries.reduce((s, d) => s + (parseFloat(d.def_gallons) || 0), 0);
+            // Use filtered deliveries for export
+            const exportDeliveries = getFilteredDeliveries();
+            const totalDiesel = exportDeliveries.reduce((s, d) => s + (parseFloat(d.gallons) || 0), 0);
+            const totalDef = exportDeliveries.reduce((s, d) => s + (parseFloat(d.def_gallons) || 0), 0);
+            const dateFilter = document.getElementById('deliveryDateFilter')?.value;
 
             // ── Sheet 1: Summary ──
             const summary = [
@@ -219,8 +236,8 @@
                 ['Contract #', first.contract_number || ''],
                 ['PO #', first.po_number || ''],
                 [],
-                ['Fuel Summary'],
-                ['Total Deliveries', siteDeliveries.length],
+                ['Fuel Summary' + (dateFilter ? ` (${new Date(dateFilter+'T00:00').toLocaleDateString()})` : ' (All Time)')],
+                ['Total Deliveries', exportDeliveries.length],
                 ['Total Diesel (gal)', totalDiesel],
                 ['Total DEF (gal)', totalDef],
                 ['Total Equipment Units', siteEquip.length],
@@ -243,9 +260,9 @@
             }
 
             // ── Sheet 3: Delivery History ──
-            if (siteDeliveries.length) {
+            if (exportDeliveries.length) {
                 const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Notes']];
-                siteDeliveries.forEach(d => {
+                exportDeliveries.forEach(d => {
                     const dt = d.timestamp ? new Date(d.timestamp) : null;
                     delData.push([
                         dt ? dt.toLocaleDateString() : '',
