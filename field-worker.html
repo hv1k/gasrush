@@ -6,30 +6,65 @@
     <title>GasRush — Field Worker</title>
     <link rel="stylesheet" href="theme.css">
     <style>
-        .job-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
-        .job-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-        .job-card.active-job { border-color: var(--primary); border-width: 2px; }
-        .job-card-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; }
-        .job-card-title { font-weight: 600; font-size: 16px; color: var(--text-primary); }
-        .job-card-detail { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
-        .job-card-actions { display: flex; gap: 8px; margin-top: 16px; }
-        .fuel-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-        .fuel-form h3 { font-size: 14px; color: var(--primary); margin-bottom: 12px; }
-        .fuel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .fuel-input { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 14px; width: 100%; }
-        .fuel-input:focus { border-color: var(--primary); outline: none; }
-        .fuel-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block; }
-        .unit-row { display: grid; grid-template-columns: 80px 1fr 1fr 1fr 40px; gap: 8px; align-items: end; margin-bottom: 8px; }
-        .unit-row .fuel-label { font-size: 11px; }
-        .add-unit-btn { font-size: 13px; color: var(--primary); cursor: pointer; background: none; border: none; padding: 8px 0; }
-        .complete-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-        .notes-input { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 14px; width: 100%; min-height: 60px; resize: vertical; }
-        .confirm-complete { background: var(--success); color: white; font-size: 15px; padding: 12px 24px; }
-        .confirm-complete:hover { opacity: 0.9; }
-        @media(max-width:500px) {
-            .fuel-row { grid-template-columns: 1fr; }
-            .unit-row { grid-template-columns: 60px 1fr 1fr 1fr 32px; gap: 4px; }
+        /* Job List */
+        .job-cards { display: flex; flex-direction: column; gap: 12px; }
+        .job-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 16px; display: flex; flex-direction: column; gap: 8px;
         }
+        .job-card.active-job { border: 2px solid var(--primary); background: var(--bg-card); }
+        .job-card-header { display: flex; justify-content: space-between; align-items: start; }
+        .job-card-title { font-weight: 600; font-size: 17px; color: var(--text-primary); }
+        .job-card-detail { color: var(--text-secondary); font-size: 14px; }
+        .job-card-detail a { color: var(--primary); text-decoration: none; }
+        .job-card .btn { min-height: 48px; font-size: 16px; margin-top: 4px; }
+
+        /* Detail View */
+        .detail-view { display: none; }
+        .detail-view.visible { display: block; }
+        .back-link { display: inline-block; padding: 12px 0; font-size: 16px; color: var(--primary); cursor: pointer; text-decoration: none; min-height: 44px; }
+        .job-info { background: var(--bg-card); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); }
+        .job-info h2 { margin: 0 0 8px; font-size: 20px; color: var(--text-primary); }
+        .job-info p { margin: 4px 0; color: var(--text-secondary); font-size: 15px; }
+        .job-info a { color: var(--primary); text-decoration: none; }
+
+        .equipment-list { background: var(--bg-card); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); }
+        .equipment-list h3 { margin: 0 0 12px; font-size: 16px; color: var(--text-primary); }
+        .equipment-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-secondary); }
+        .equipment-item:last-child { border-bottom: none; }
+
+        .unit-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 16px; margin-bottom: 12px;
+        }
+        .unit-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .unit-card-header h4 { margin: 0; font-size: 16px; color: var(--text-primary); }
+        .unit-card .remove-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+        .field-group { margin-bottom: 12px; }
+        .field-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+        .field-group input, .field-group textarea {
+            width: 100%; box-sizing: border-box;
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 14px 16px; color: var(--text-primary); font-size: 18px;
+        }
+        .field-group input:focus, .field-group textarea:focus { border-color: var(--primary); outline: none; }
+        .field-group input[type="number"] { font-size: 20px; font-weight: 600; }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .add-unit-btn {
+            width: 100%; min-height: 48px; font-size: 16px; background: var(--bg-secondary);
+            border: 2px dashed var(--border); border-radius: 12px; color: var(--primary);
+            cursor: pointer; margin-bottom: 16px;
+        }
+        .notes-section { margin-bottom: 16px; }
+        .notes-section textarea { min-height: 80px; resize: vertical; font-size: 16px; }
+
+        .complete-btn {
+            width: 100%; min-height: 56px; font-size: 18px; font-weight: 600;
+            background: var(--success, #22c55e); color: white; border: none; border-radius: 12px;
+            cursor: pointer; margin-bottom: 32px;
+        }
+        .complete-btn:active { opacity: 0.85; }
     </style>
 </head>
 <body>
@@ -41,22 +76,21 @@
         </aside>
 
         <main class="main-content">
-            <div class="page-header">
-                <h1>My Jobs</h1>
-                <p id="greeting">Welcome back</p>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card"><div class="stat-label">Active Jobs</div><div class="stat-value" id="statActive">—</div></div>
-                <div class="stat-card"><div class="stat-label">Completed Today</div><div class="stat-value" id="statToday">—</div></div>
-                <div class="stat-card"><div class="stat-label">Total Gallons Delivered</div><div class="stat-value" id="statGallons">—</div><div class="stat-sub">gal</div></div>
-            </div>
-
-            <div style="margin-top:24px">
-                <h2 style="margin-bottom:16px;">Assigned Jobs</h2>
+            <!-- Job List View -->
+            <div id="listView">
+                <div class="page-header">
+                    <h1>My Jobs</h1>
+                    <p id="greeting">Welcome back</p>
+                </div>
                 <div id="jobsContainer" class="job-cards">
                     <div class="empty-state"><div class="empty-state-icon">🚛</div><h3>Loading...</h3></div>
                 </div>
+            </div>
+
+            <!-- Job Detail View -->
+            <div id="detailView" class="detail-view">
+                <a class="back-link" onclick="showListView()">← Back to Jobs</a>
+                <div id="detailContent"></div>
             </div>
         </main>
     </div>
@@ -67,7 +101,9 @@
     <script>
         let currentUser = null;
         let allJobs = [];
-        let unitCounters = {}; // track unit rows per job
+        let activeJobId = null;
+        let unitCounter = 0;
+        let jobEquipment = [];
 
         (async () => {
             const user = await GasRush.init({ roles: ['fieldworker', 'admin'] });
@@ -78,29 +114,18 @@
             const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
             document.getElementById('greeting').textContent = `${greet}, ${user.name}`;
 
-            await loadData();
+            await loadJobs();
         })();
 
-        async function loadData() {
+        async function loadJobs() {
             try {
                 let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
                 if (currentUser.role === 'fieldworker') {
                     query = query.eq('assigned_worker', currentUser.id);
                 }
-
                 const { data: jobs, error } = await query;
                 if (error) throw error;
                 allJobs = jobs || [];
-
-                const active = allJobs.filter(j => ['active', 'assigned', 'pending', 'in-progress'].includes(j.status)).length;
-                const today = new Date().toISOString().slice(0, 10);
-                const completedToday = allJobs.filter(j => j.status === 'completed' && j.completed_at && j.completed_at.startsWith(today)).length;
-                const gallons = allJobs.filter(j => j.status === 'completed').reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
-
-                document.getElementById('statActive').textContent = active;
-                document.getElementById('statToday').textContent = completedToday;
-                document.getElementById('statGallons').textContent = gallons.toLocaleString();
-
                 renderJobs();
             } catch(e) {
                 console.error('Failed to load:', e);
@@ -110,148 +135,197 @@
 
         function renderJobs() {
             const container = document.getElementById('jobsContainer');
-            const activeJobs = allJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
+            const visible = allJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
 
-            if (activeJobs.length === 0) {
+            if (!visible.length) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚛</div><h3>No jobs assigned</h3><p>Check back later for new assignments</p></div>';
                 return;
             }
 
-            container.innerHTML = activeJobs.map(job => {
-                const status = job.status || 'pending';
-                const isActive = ['active', 'in-progress'].includes(status);
-                const isAssigned = ['pending', 'assigned'].includes(status);
-                const bc = isActive ? 'badge-success' : isAssigned ? 'badge-primary' : 'badge-warning';
-                const loc = [job.address_street, job.address_city, job.address_state].filter(Boolean).join(', ') || '—';
+            // Sort: active/in-progress first, then assigned/pending
+            const active = visible.filter(j => ['active','in-progress'].includes(j.status));
+            const assigned = visible.filter(j => !['active','in-progress'].includes(j.status));
+            const sorted = [...active, ...assigned];
 
-                let html = `<div class="job-card ${isActive ? 'active-job' : ''}">
+            container.innerHTML = sorted.map(job => {
+                const isActive = ['active','in-progress'].includes(job.status);
+                const loc = [job.address_street, job.address_city, job.address_state].filter(Boolean).join(', ') || '—';
+                const badge = isActive ? '<span class="badge badge-success">🔴 In Progress</span>' : `<span class="badge badge-primary">${esc(job.status)}</span>`;
+                const phone = job.contact_phone ? `<a href="tel:${esc(job.contact_phone)}">${esc(job.contact_phone)}</a>` : '';
+                const btn = isActive
+                    ? `<button class="btn btn-primary" onclick="openJob('${job.id}')">Continue →</button>`
+                    : `<button class="btn btn-primary" onclick="startJob('${job.id}')">▶️ Start Job</button>`;
+
+                return `<div class="job-card ${isActive ? 'active-job' : ''}">
                     <div class="job-card-header">
                         <div class="job-card-title">${esc(job.job_site_name || 'Untitled')}</div>
-                        <span class="badge ${bc}">${isActive ? '🔴 In Progress' : status}</span>
+                        ${badge}
                     </div>
                     <div class="job-card-detail">📍 ${esc(loc)}</div>
                     ${job.customer_name ? `<div class="job-card-detail">👤 ${esc(job.customer_name)}</div>` : ''}
-                    ${job.contact_name ? `<div class="job-card-detail">📞 ${esc(job.contact_name)} ${esc(job.contact_phone||'')}</div>` : ''}
-`;
-
-                // ASSIGNED → Show Start button only
-                if (isAssigned) {
-                    html += `<div class="job-card-actions">
-                        <button class="btn btn-primary" onclick="startJob('${job.id}')">▶️ Start Job</button>
-                    </div>`;
-                }
-
-                // ACTIVE → Show fuel input form + complete
-                if (isActive) {
-                    const jid = job.id;
-                    const bs = job.billable_services || {};
-                    html += `<div class="fuel-form" id="fuel-${jid}">
-                        <h3>⛽ Fuel Delivery Data</h3>
-                        <div id="units-${jid}">
-                            <div class="unit-row" id="unit-${jid}-0">
-                                <div><label class="fuel-label">QTY</label><input type="number" class="fuel-input" id="uqty-${jid}-0" value="1" min="1"></div>
-                                <div><label class="fuel-label">Unit #</label><input type="text" class="fuel-input" id="unum-${jid}-0" placeholder="A0147"></div>
-                                <div><label class="fuel-label">Diesel (gal)</label><input type="number" class="fuel-input" id="udiesel-${jid}-0" step="0.1" placeholder="0"></div>
-                                <div><label class="fuel-label">DEF (gal)</label><input type="number" class="fuel-input" id="udef-${jid}-0" step="0.1" placeholder="0"></div>
-                                <div style="padding-top:18px"></div>
-                            </div>
-                        </div>
-                        <button class="add-unit-btn" onclick="addUnitRow('${jid}')">+ Add Another Unit</button>
-
-                        <div class="complete-section">
-                            <label class="fuel-label">Notes (optional)</label>
-                            <textarea class="notes-input" id="notes-${jid}" placeholder="Any notes about this delivery..."></textarea>
-                            <div style="display:flex;gap:8px;margin-top:12px">
-                                <button class="btn confirm-complete" onclick="completeJob('${jid}')">✅ Complete Job</button>
-                            </div>
-                        </div>
-                    </div>`;
-                }
-
-                html += '</div>';
-                return html;
+                    ${job.contact_name ? `<div class="job-card-detail">📞 ${esc(job.contact_name)} ${phone}</div>` : ''}
+                    ${btn}
+                </div>`;
             }).join('');
-
-            // Reset unit counters
-            activeJobs.filter(j => ['active','in-progress'].includes(j.status)).forEach(j => {
-                if (!unitCounters[j.id]) unitCounters[j.id] = 1;
-            });
-        }
-
-        function addUnitRow(jid) {
-            const idx = unitCounters[jid] || 1;
-            unitCounters[jid] = idx + 1;
-            const container = document.getElementById('units-' + jid);
-            const row = document.createElement('div');
-            row.className = 'unit-row';
-            row.id = `unit-${jid}-${idx}`;
-            row.innerHTML = `
-                <div><input type="number" class="fuel-input" id="uqty-${jid}-${idx}" value="1" min="1"></div>
-                <div><input type="text" class="fuel-input" id="unum-${jid}-${idx}" placeholder="Unit #"></div>
-                <div><input type="number" class="fuel-input" id="udiesel-${jid}-${idx}" step="0.1" placeholder="0"></div>
-                <div><input type="number" class="fuel-input" id="udef-${jid}-${idx}" step="0.1" placeholder="0"></div>
-                <div><button class="btn btn-secondary" style="padding:8px;font-size:12px" onclick="document.getElementById('unit-${jid}-${idx}').remove()">✕</button></div>`;
-            container.appendChild(row);
         }
 
         async function startJob(id) {
             try {
                 const job = allJobs.find(j => j.id === id);
                 const oldStatus = job?.status || 'unknown';
-
                 const { error } = await GasRush.db().from('jobs').update({ status: 'active' }).eq('id', id);
                 if (error) throw error;
-
                 await logAudit(id, 'status_change', { from: oldStatus, to: 'active' });
-                await loadData();
+                await loadJobs();
             } catch(e) {
                 alert('Failed to start: ' + (e.message || e));
             }
         }
 
-        async function completeJob(jid) {
-            // Collect all unit data
+        async function openJob(id) {
+            activeJobId = id;
+            unitCounter = 0;
+            jobEquipment = [];
+
+            const job = allJobs.find(j => j.id === id);
+            if (!job) return;
+
+            // Fetch equipment
+            try {
+                const { data } = await GasRush.db().from('equipment').select('*').eq('job_id', id);
+                jobEquipment = data || [];
+            } catch(e) { console.warn('Equipment fetch failed:', e); }
+
+            const loc = [job.address_street, job.address_city, job.address_state].filter(Boolean).join(', ') || '—';
+            const phone = job.contact_phone ? `<a href="tel:${esc(job.contact_phone)}">${esc(job.contact_phone)}</a>` : '';
+
+            let html = `<div class="job-info">
+                <h2>${esc(job.job_site_name || 'Untitled')}</h2>
+                <p>📍 ${esc(loc)}</p>
+                ${job.customer_name ? `<p>👤 ${esc(job.customer_name)}</p>` : ''}
+                ${job.contact_name ? `<p>📞 ${esc(job.contact_name)} ${phone}</p>` : ''}
+            </div>`;
+
+            // Equipment list
+            if (jobEquipment.length) {
+                html += `<div class="equipment-list"><h3>📋 Equipment on Work Order</h3>`;
+                html += jobEquipment.map(eq =>
+                    `<div class="equipment-item"><strong>${esc(eq.equipment_number || '—')}</strong> — ${esc(eq.description || 'No description')} ${eq.quantity > 1 ? `(×${eq.quantity})` : ''}</div>`
+                ).join('');
+                html += `</div>`;
+            }
+
+            // Fuel entry section
+            html += `<h3 style="margin:16px 0 12px;color:var(--text-primary)">⛽ Fuel Entry</h3>`;
+            html += `<div id="unitsContainer"></div>`;
+            html += `<button class="add-unit-btn" onclick="addUnit()">+ Add Unit</button>`;
+
+            // Notes
+            html += `<div class="notes-section"><div class="field-group"><label>Notes (optional)</label><textarea id="jobNotes" placeholder="Any notes about this delivery..."></textarea></div></div>`;
+
+            // Complete button
+            html += `<button class="complete-btn" onclick="completeJob()">✅ Complete Job</button>`;
+
+            document.getElementById('detailContent').innerHTML = html;
+
+            // Pre-populate units from equipment or add one blank
+            if (jobEquipment.length) {
+                jobEquipment.forEach(eq => addUnit(eq.equipment_number));
+            } else {
+                addUnit();
+            }
+
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('detailView').classList.add('visible');
+            window.scrollTo(0, 0);
+        }
+
+        function addUnit(prefillNumber) {
+            const idx = unitCounter++;
+            const container = document.getElementById('unitsContainer');
+            const div = document.createElement('div');
+            div.className = 'unit-card';
+            div.id = `unit-${idx}`;
+            div.innerHTML = `
+                <div class="unit-card-header">
+                    <h4>Unit ${idx + 1}</h4>
+                    ${idx > 0 || unitCounter > 1 ? `<button class="remove-btn" onclick="document.getElementById('unit-${idx}').remove()">✕</button>` : '<div></div>'}
+                </div>
+                <div class="field-group">
+                    <label>Unit #</label>
+                    <input type="text" id="unum-${idx}" value="${esc(prefillNumber || '')}" placeholder="e.g. A0147">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>Diesel (gal)</label>
+                        <input type="number" id="udiesel-${idx}" step="0.1" min="0" placeholder="0" inputmode="decimal">
+                    </div>
+                    <div class="field-group">
+                        <label>DEF (gal)</label>
+                        <input type="number" id="udef-${idx}" step="0.1" min="0" placeholder="0" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>Gen Hours Reading (optional)</label>
+                    <input type="number" id="uhours-${idx}" step="0.1" min="0" placeholder="—" inputmode="decimal">
+                </div>`;
+            container.appendChild(div);
+        }
+
+        function showListView() {
+            activeJobId = null;
+            document.getElementById('detailView').classList.remove('visible');
+            document.getElementById('listView').style.display = '';
+            window.scrollTo(0, 0);
+        }
+
+        async function completeJob() {
+            const jid = activeJobId;
+            if (!jid) return;
+
+            // Collect units
             const units = [];
             let totalDiesel = 0, totalDef = 0;
-            const container = document.getElementById('units-' + jid);
-            const rows = container.querySelectorAll('.unit-row');
-
-            rows.forEach((row, i) => {
-                const idx = row.id.split('-').pop();
-                const qty = parseInt(document.getElementById(`uqty-${jid}-${idx}`)?.value) || 1;
-                const num = document.getElementById(`unum-${jid}-${idx}`)?.value?.trim() || '';
-                const diesel = parseFloat(document.getElementById(`udiesel-${jid}-${idx}`)?.value) || 0;
-                const def = parseFloat(document.getElementById(`udef-${jid}-${idx}`)?.value) || 0;
+            document.querySelectorAll('#unitsContainer .unit-card').forEach(card => {
+                const idx = card.id.split('-')[1];
+                const num = document.getElementById(`unum-${idx}`)?.value?.trim() || '';
+                const diesel = parseFloat(document.getElementById(`udiesel-${idx}`)?.value) || 0;
+                const def = parseFloat(document.getElementById(`udef-${idx}`)?.value) || 0;
+                const hours = parseFloat(document.getElementById(`uhours-${idx}`)?.value) || null;
                 if (num || diesel || def) {
-                    units.push({ qty, unit_number: num, diesel, def });
+                    units.push({ unit_number: num, diesel, def, gen_hours: hours });
                     totalDiesel += diesel;
                     totalDef += def;
                 }
             });
 
-            const notes = document.getElementById('notes-' + jid)?.value?.trim() || '';
+            const notes = document.getElementById('jobNotes')?.value?.trim() || '';
 
-            // Confirm
+            // Summary confirmation
             let msg = `Complete this job?\n\n`;
             if (units.length) {
-                msg += units.map(u => `Unit ${u.unit_number || '—'}: ${u.diesel}gal diesel, ${u.def}gal DEF`).join('\n');
+                msg += units.map(u => `Unit ${u.unit_number || '—'}: ${u.diesel}gal diesel, ${u.def}gal DEF${u.gen_hours ? ', ' + u.gen_hours + 'hrs' : ''}`).join('\n');
                 msg += `\n\nTotal: ${totalDiesel} gal diesel, ${totalDef} gal DEF`;
             } else {
                 msg += 'No fuel data entered.';
             }
+            if (notes) msg += `\n\nNotes: ${notes}`;
             if (!confirm(msg)) return;
 
             try {
                 const job = allJobs.find(j => j.id === jid);
-                const bs = { ...(job?.billable_services || {}), fuelGallons: totalDiesel || null, defGallons: totalDef || null, units: units };
+                const bs = {
+                    ...(job?.billable_services || {}),
+                    fuelGallons: totalDiesel || null,
+                    defGallons: totalDef || null,
+                    units
+                };
 
-                const update = {
+                const { error } = await GasRush.db().from('jobs').update({
                     status: 'completed',
                     completed_at: new Date().toISOString(),
                     billable_services: bs
-                };
-
-                const { error } = await GasRush.db().from('jobs').update(update).eq('id', jid);
+                }).eq('id', jid);
                 if (error) throw error;
 
                 // Create invoice
@@ -269,8 +343,10 @@
                     });
                 } catch(e2) { console.warn('Invoice creation failed:', e2); }
 
-                await logAudit(jid, 'status_change', { from: job?.status || 'active', to: 'completed', diesel: totalDiesel, def: totalDef });
-                await loadData();
+                await logAudit(jid, 'status_change', { from: job?.status || 'active', to: 'completed', diesel: totalDiesel, def: totalDef, units });
+
+                showListView();
+                await loadJobs();
             } catch(e) {
                 alert('Failed to complete: ' + (e.message || e));
             }
@@ -286,7 +362,7 @@
             } catch(e) { console.warn('Audit log failed:', e); }
         }
 
-        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     </script>
 </body>
 </html>
