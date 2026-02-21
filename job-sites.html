@@ -98,7 +98,7 @@
                 const jobIds = (data || []).map(j => j.id);
                 let deliveriesByJob = {};
                 if (jobIds.length > 0) {
-                    const { data: deliveries } = await window.__supabase
+                    const { data: deliveries } = await GasRush.db()
                         .from('deliveries')
                         .select('job_id, gallons, def_gallons, timestamp')
                         .in('job_id', jobIds);
