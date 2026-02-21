@@ -75,6 +75,14 @@
                 <div id="jobHistory"></div>
             </div>
 
+            <!-- Delivery History -->
+            <div class="card mt-4" id="deliverySection" style="display:none">
+                <div class="card-header">
+                    <h2 class="card-title">Delivery History</h2>
+                </div>
+                <div id="deliveryList"></div>
+            </div>
+
             <!-- Equipment at this site -->
             <div class="card mt-4" id="equipSection" style="display:none">
                 <div class="card-header">
@@ -92,6 +100,7 @@
     <script>
         let allJobs = [];
         let siteEquip = [];
+        let siteDeliveries = [];
         const siteName = new URLSearchParams(window.location.search).get('site');
 
         (async () => {
@@ -123,8 +132,19 @@
                     siteEquip = equip || [];
                 }
 
+                // Load deliveries for all jobs at this site
+                if (jobIds.length) {
+                    const { data: dels } = await GasRush.db()
+                        .from('deliveries')
+                        .select('*')
+                        .in('job_id', jobIds)
+                        .order('timestamp', { ascending: false });
+                    siteDeliveries = dels || [];
+                }
+
                 renderHeader();
                 renderJobs();
+                renderDeliveries();
                 renderEquipment();
             } catch(e) {
                 console.error(e);
@@ -205,6 +225,26 @@
                     </div>
                 </div>`;
             }).join('') + '</div>';
+        }
+
+        function renderDeliveries() {
+            if (!siteDeliveries.length) return;
+            document.getElementById('deliverySection').style.display = '';
+            const list = document.getElementById('deliveryList');
+            let h = '<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th></tr></thead><tbody>';
+            siteDeliveries.forEach(d => {
+                const date = d.timestamp ? new Date(d.timestamp).toLocaleString() : '—';
+                h += `<tr>
+                    <td>${date}</td>
+                    <td>${esc(d.delivered_by_name || '—')}</td>
+                    <td><strong>${esc(d.unit_number || '—')}</strong></td>
+                    <td>${d.gallons || 0} gal</td>
+                    <td>${d.def_gallons || 0} gal</td>
+                    <td>${d.unit_hours || '—'}</td>
+                </tr>`;
+            });
+            h += '</tbody></table></div>';
+            list.innerHTML = h;
         }
 
         function renderEquipment() {
