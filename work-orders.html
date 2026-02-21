@@ -253,11 +253,9 @@
                 }
             }
 
-            if (currentUser.role === 'fieldworker' || currentUser.role === 'admin') {
-                if (['assigned','active'].includes(status)) {
-                    html += `<button class="btn btn-primary" onclick="updateJobStatus('${id}','active')">🚛 Start Job</button>`;
-                    html += `<button class="btn btn-success" onclick="completeJob('${id}')">✅ Complete Job</button>`;
-                }
+            // Rental/Vendor/Admin can complete jobs
+            if (['vendor','rental','admin'].includes(currentUser.role) && ['active','in-progress','assigned'].includes(status)) {
+                html += `<button class="btn btn-success" onclick="completeJob('${id}')">✅ Complete Job</button>`;
             }
 
             if (currentUser.role === 'rental' && status === 'pending') {

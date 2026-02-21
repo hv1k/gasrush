@@ -61,7 +61,7 @@
 
         .complete-btn {
             width: 100%; min-height: 56px; font-size: 18px; font-weight: 600;
-            background: var(--success, #22c55e); color: white; border: none; border-radius: 12px;
+            background: var(--primary); color: white; border: none; border-radius: 12px;
             cursor: pointer; margin-bottom: 32px;
         }
         .complete-btn:active { opacity: 0.85; }
@@ -224,7 +224,7 @@
             html += `<div class="notes-section"><div class="field-group"><label>Notes (optional)</label><textarea id="jobNotes" placeholder="Any notes about this delivery..."></textarea></div></div>`;
 
             // Complete button
-            html += `<button class="complete-btn" onclick="completeJob()">✅ Complete Job</button>`;
+            html += `<button class="complete-btn" onclick="submitDelivery()">📋 Submit Delivery</button>`;
 
             document.getElementById('detailContent').innerHTML = html;
 
@@ -279,7 +279,7 @@
             window.scrollTo(0, 0);
         }
 
-        async function completeJob() {
+        async function submitDelivery() {
             const jid = activeJobId;
             if (!jid) return;
 
@@ -299,36 +299,40 @@
                 }
             });
 
+            if (!units.length || (totalDiesel === 0 && totalDef === 0)) {
+                alert('Please enter fuel data for at least one unit.');
+                return;
+            }
+
             const notes = document.getElementById('jobNotes')?.value?.trim() || '';
 
             // Summary confirmation
-            let msg = `Complete this job?\n\n`;
-            if (units.length) {
-                msg += units.map(u => `Unit ${u.unit_number || '—'}: ${u.diesel}gal diesel, ${u.def}gal DEF${u.gen_hours ? ', ' + u.gen_hours + 'hrs' : ''}`).join('\n');
-                msg += `\n\nTotal: ${totalDiesel} gal diesel, ${totalDef} gal DEF`;
-            } else {
-                msg += 'No fuel data entered.';
-            }
+            let msg = `Submit this delivery?\n\n`;
+            msg += units.map(u => `Unit ${u.unit_number || '—'}: ${u.diesel}gal diesel, ${u.def}gal DEF${u.gen_hours ? ', ' + u.gen_hours + 'hrs' : ''}`).join('\n');
+            msg += `\n\nTotal: ${totalDiesel} gal diesel, ${totalDef} gal DEF`;
             if (notes) msg += `\n\nNotes: ${notes}`;
+            msg += `\n\nJob will remain active for future deliveries.`;
             if (!confirm(msg)) return;
 
             try {
                 const job = allJobs.find(j => j.id === jid);
-                const bs = {
-                    ...(job?.billable_services || {}),
-                    fuelGallons: totalDiesel || null,
-                    defGallons: totalDef || null,
-                    units
-                };
 
-                const { error } = await GasRush.db().from('jobs').update({
-                    status: 'completed',
-                    completed_at: new Date().toISOString(),
-                    billable_services: bs
-                }).eq('id', jid);
-                if (error) throw error;
+                // Save each unit as a delivery record
+                for (const u of units) {
+                    await GasRush.db().from('deliveries').insert({
+                        job_id: jid,
+                        delivered_by: currentUser.id?.length === 36 ? currentUser.id : null,
+                        delivered_by_name: currentUser.name,
+                        gallons: u.diesel,
+                        def_gallons: u.def,
+                        fuel_type: 'diesel',
+                        unit_number: u.unit_number,
+                        unit_hours: u.gen_hours,
+                        notes: notes || null
+                    });
+                }
 
-                // Create invoice
+                // Also create an invoice for this delivery
                 try {
                     await GasRush.db().from('invoices').insert({
                         job_id: jid,
@@ -337,18 +341,19 @@
                         invoice_date: new Date().toISOString().slice(0, 10),
                         invoice_time: new Date().toTimeString().slice(0, 5),
                         notes: notes || null,
-                        units_data: units.length ? units : null,
+                        units_data: units,
                         total_diesel: totalDiesel,
                         total_def: totalDef
                     });
                 } catch(e2) { console.warn('Invoice creation failed:', e2); }
 
-                await logAudit(jid, 'status_change', { from: job?.status || 'active', to: 'completed', diesel: totalDiesel, def: totalDef, units });
+                await logAudit(jid, 'delivery_submitted', { diesel: totalDiesel, def: totalDef, units });
 
+                alert('✅ Delivery submitted!');
                 showListView();
                 await loadJobs();
             } catch(e) {
-                alert('Failed to complete: ' + (e.message || e));
+                alert('Failed to submit: ' + (e.message || e));
             }
         }
 
