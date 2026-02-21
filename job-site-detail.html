@@ -72,6 +72,14 @@
                 </div>
                 <div id="deliveryList"></div>
             </div>
+
+            <!-- Job/Work Order Details -->
+            <div class="card mt-4" id="jobDetailsSection" style="display:none">
+                <div class="card-header">
+                    <h2 class="card-title">Work Order Details</h2>
+                </div>
+                <div id="jobDetailsBody"></div>
+            </div>
         </main>
     </div>
 
@@ -127,6 +135,7 @@
                 renderHeader();
                 renderEquipment();
                 renderDeliveries();
+                renderJobDetails();
             } catch(e) {
                 console.error(e);
                 document.getElementById('siteHeader').innerHTML = '<div class="empty-state"><h3>Failed to load site data</h3></div>';
@@ -191,6 +200,62 @@
             });
             h += '</tbody></table></div>';
             list.innerHTML = h;
+        }
+
+        function renderJobDetails() {
+            if (!allJobs.length) return;
+            const j = allJobs[0]; // most recent job at this site
+            document.getElementById('jobDetailsSection').style.display = '';
+
+            const field = (label, val) => val ? `<div class="job-detail-item"><label>${label}</label><div class="value">${esc(val)}</div></div>` : '';
+            const genInfo = j.generator_info || {};
+
+            let html = '<div class="job-detail">';
+            html += field('Job Type', (j.job_type || '').replace('-', ' '));
+            html += field('Status', j.status);
+            html += field('Contract #', j.contract_number);
+            html += field('PO #', j.po_number);
+            html += field('Job #', j.job_number);
+            html += field('Order ID', j.order_id);
+            html += field('Customer #', j.customer_number);
+            html += field('Vendor #', j.vendor_number);
+            html += field('Payment Terms', j.payment_terms);
+            html += field('Salesman', j.salesman);
+            html += field('Rental Company', j.rental_company);
+            html += field('Date Out', j.date_out);
+            html += field('Time Out', j.time_out);
+            html += field('Est. Return', j.est_return);
+            html += field('Document Source', j.document_source);
+            html += '</div>';
+
+            // Field Ticket
+            if (j.field_ticket_id || j.ticket_type || j.area || j.work_performed) {
+                html += '<h3 style="margin-top:16px;font-size:14px;color:var(--primary)">Field Ticket</h3><div class="job-detail">';
+                html += field('Ticket ID', j.field_ticket_id);
+                html += field('Ticket Type', j.ticket_type);
+                html += field('Area', j.area);
+                html += field('Ticket Status', j.ticket_status);
+                html += field('Technician', j.technician_name);
+                html += '</div>';
+                if (j.work_performed) html += `<div style="margin-top:8px"><label style="font-size:12px;color:var(--text-muted)">Work Performed</label><p style="font-size:14px;color:var(--text-secondary);white-space:pre-wrap">${esc(j.work_performed)}</p></div>`;
+            }
+
+            // Generator Info
+            if (j.old_gen_hour || j.new_gen_id || j.new_gen_hour || Object.keys(genInfo).length) {
+                html += '<h3 style="margin-top:16px;font-size:14px;color:var(--primary)">Generator Info</h3><div class="job-detail">';
+                html += field('Old Gen Hours', j.old_gen_hour);
+                html += field('New Gen ID', j.new_gen_id);
+                html += field('New Gen Hours', j.new_gen_hour);
+                Object.entries(genInfo).forEach(([k, v]) => { if (v) html += field(k.replace(/_/g, ' '), String(v)); });
+                html += '</div>';
+            }
+
+            // Instructions
+            if (j.instructions) {
+                html += `<div style="margin-top:16px"><label style="font-size:12px;color:var(--text-muted)">Instructions</label><p style="font-size:14px;color:var(--text-secondary);white-space:pre-wrap">${esc(j.instructions)}</p></div>`;
+            }
+
+            document.getElementById('jobDetailsBody').innerHTML = html;
         }
 
         function renderEquipment() {
