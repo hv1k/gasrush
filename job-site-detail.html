@@ -323,19 +323,35 @@
             if (!siteEquip.length) return;
             document.getElementById('equipSection').style.display = '';
 
-            // Deduplicate by equipment_number
+            // Deduplicate by equipment_number and sum delivery totals
             const unique = {};
             for (const e of siteEquip) {
                 const key = e.equipment_number || e.description || e.id;
-                if (!unique[key]) unique[key] = { ...e, count: 0 };
-                unique[key].count++;
+                if (!unique[key]) unique[key] = { ...e, count: 0, totalDiesel: 0, totalDef: 0, lastHours: null };
+            }
+            // Sum deliveries per unit
+            for (const d of siteDeliveries) {
+                const key = d.unit_number;
+                if (key && unique[key]) {
+                    unique[key].count++;
+                    unique[key].totalDiesel += parseFloat(d.gallons) || 0;
+                    unique[key].totalDef += parseFloat(d.def_gallons) || 0;
+                    const hrs = parseFloat(d.unit_hours) || 0;
+                    if (hrs && (!unique[key].lastHours || hrs > unique[key].lastHours)) unique[key].lastHours = hrs;
+                } else if (key) {
+                    // Delivery for unit not in equipment table
+                    unique[key] = { equipment_number: key, description: '', count: 1, totalDiesel: parseFloat(d.gallons) || 0, totalDef: parseFloat(d.def_gallons) || 0, lastHours: parseFloat(d.unit_hours) || null };
+                }
             }
 
-            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Unit #</th><th>Description</th><th>Times Serviced</th></tr></thead><tbody>' +
+            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Unit #</th><th>Description</th><th>Deliveries</th><th>Total Diesel</th><th>Total DEF</th><th>Last Gen Hrs</th></tr></thead><tbody>' +
                 Object.values(unique).map(e => `<tr>
                     <td><strong>${esc(e.equipment_number || '—')}</strong></td>
                     <td>${esc(e.description || '—')}</td>
                     <td>${e.count}</td>
+                    <td>${e.totalDiesel ? e.totalDiesel.toLocaleString() + ' gal' : '—'}</td>
+                    <td>${e.totalDef ? e.totalDef.toLocaleString() + ' gal' : '—'}</td>
+                    <td>${e.lastHours || '—'}</td>
                 </tr>`).join('') + '</tbody></table></div>';
         }
 
