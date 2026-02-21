@@ -168,10 +168,15 @@
                 list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">No deliveries for selected date</div>';
                 return;
             }
-            let h = '<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th></tr></thead><tbody>';
-            filtered.forEach(d => {
+            let h = `<div style="display:flex;gap:8px;margin-bottom:8px">
+                <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="toggleAllDeliveries()">Select All</button>
+                <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="exportSelected()">📥 Export Selected</button>
+            </div>`;
+            h += '<div class="table-wrapper"><table><thead><tr><th style="width:32px"><input type="checkbox" id="selectAllCb" onchange="toggleAllDeliveries(this.checked)"></th><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th></tr></thead><tbody>';
+            filtered.forEach((d, i) => {
                 const date = d.timestamp ? new Date(d.timestamp).toLocaleString() : '—';
                 h += `<tr>
+                    <td><input type="checkbox" class="del-cb" data-idx="${i}" value="${d.id}"></td>
                     <td>${date}</td>
                     <td>${esc(d.delivered_by_name || '—')}</td>
                     <td><strong>${esc(d.unit_number || '—')}</strong></td>
@@ -182,6 +187,80 @@
             });
             h += '</tbody></table></div>';
             list.innerHTML = h;
+        }
+
+        function toggleAllDeliveries(checked) {
+            const cbs = document.querySelectorAll('.del-cb');
+            const allCb = document.getElementById('selectAllCb');
+            if (checked === undefined) {
+                // Toggle: if all checked, uncheck all; else check all
+                const allChecked = [...cbs].every(c => c.checked);
+                cbs.forEach(c => c.checked = !allChecked);
+                if (allCb) allCb.checked = !allChecked;
+            } else {
+                cbs.forEach(c => c.checked = checked);
+            }
+        }
+
+        function exportSelected() {
+            const filtered = getFilteredDeliveries();
+            const selected = [...document.querySelectorAll('.del-cb:checked')].map(c => c.value);
+            if (!selected.length) { alert('Select at least one delivery to export.'); return; }
+
+            const exportDels = filtered.filter(d => selected.includes(d.id));
+            const totalDiesel = exportDels.reduce((s, d) => s + (parseFloat(d.gallons) || 0), 0);
+            const totalDef = exportDels.reduce((s, d) => s + (parseFloat(d.def_gallons) || 0), 0);
+            const first = allJobs[0] || {};
+            const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
+
+            const wb = XLSX.utils.book_new();
+
+            // Summary
+            const summary = [
+                ['', '', siteName],
+                [],
+                ['Site Information'],
+                ['Address', addr],
+                ['Customer', first.customer_name || ''],
+                ['Contact', first.contact_name || ''],
+                ['Phone', first.contact_phone || ''],
+                ['Contract #', first.contract_number || ''],
+                ['PO #', first.po_number || ''],
+                [],
+                ['Export Summary'],
+                ['Deliveries Selected', exportDels.length],
+                ['Total Diesel (gal)', totalDiesel],
+                ['Total DEF (gal)', totalDef],
+                [],
+                ['Report Generated', new Date().toLocaleString()],
+            ];
+            const ws1 = XLSX.utils.aoa_to_sheet(summary);
+            ws1['!cols'] = [{ wch: 22 }, { wch: 45 }, { wch: 30 }];
+            XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+
+            // Deliveries
+            const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Notes']];
+            exportDels.forEach(d => {
+                const dt = d.timestamp ? new Date(d.timestamp) : null;
+                delData.push([
+                    dt ? dt.toLocaleDateString() : '',
+                    dt ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+                    d.delivered_by_name || '',
+                    d.unit_number || '',
+                    parseFloat(d.gallons) || 0,
+                    parseFloat(d.def_gallons) || 0,
+                    d.unit_hours || '',
+                    d.notes || ''
+                ]);
+            });
+            delData.push([]);
+            delData.push(['', '', '', 'TOTALS', totalDiesel, totalDef, '', '']);
+            const ws2 = XLSX.utils.aoa_to_sheet(delData);
+            ws2['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
+            XLSX.utils.book_append_sheet(wb, ws2, 'Deliveries');
+
+            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_selected_deliveries.xlsx';
+            XLSX.writeFile(wb, filename);
         }
 
         function renderJobDetails() {
