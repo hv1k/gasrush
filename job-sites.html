@@ -97,6 +97,7 @@
                 // Get all job IDs to fetch deliveries
                 const jobIds = (data || []).map(j => j.id);
                 let deliveriesByJob = {};
+                let equipmentByJob = {};
                 if (jobIds.length > 0) {
                     const { data: deliveries } = await GasRush.db()
                         .from('deliveries')
@@ -105,6 +106,15 @@
                     for (const d of (deliveries || [])) {
                         if (!deliveriesByJob[d.job_id]) deliveriesByJob[d.job_id] = [];
                         deliveriesByJob[d.job_id].push(d);
+                    }
+                    // Fetch equipment counts
+                    const { data: equipData } = await GasRush.db()
+                        .from('equipment')
+                        .select('job_id')
+                        .in('job_id', jobIds);
+                    for (const eq of (equipData || [])) {
+                        if (!equipmentByJob[eq.job_id]) equipmentByJob[eq.job_id] = 0;
+                        equipmentByJob[eq.job_id]++;
                     }
                 }
 
@@ -121,6 +131,7 @@
                             jobs: [],
                             totalFuel: 0,
                             totalDef: 0,
+                            totalEquipment: 0,
                             completed: 0,
                             lastDate: null
                         };
@@ -128,6 +139,7 @@
                     const s = sites[name];
                     s.jobs.push(job);
                     // Sum from actual deliveries
+                    s.totalEquipment += equipmentByJob[job.id] || 0;
                     const jobDeliveries = deliveriesByJob[job.id] || [];
                     for (const del of jobDeliveries) {
                         s.totalFuel += parseFloat(del.gallons) || 0;
@@ -207,7 +219,7 @@
                         <div class="site-name">${esc(s.name)}</div>
                         <div class="site-location">📍 ${esc([s.address, s.city, s.state].filter(Boolean).join(', ') || 'No address')}</div>
                         <div class="site-stats">
-                            <div class="site-stat"><div class="site-stat-value">${s.jobs.length}</div><div class="site-stat-label">Jobs</div></div>
+                            <div class="site-stat"><div class="site-stat-value">${s.totalEquipment}</div><div class="site-stat-label">Equipment</div></div>
                             <div class="site-stat"><div class="site-stat-value">${s.completed}</div><div class="site-stat-label">Completed</div></div>
                             <div class="site-stat"><div class="site-stat-value">${s.totalFuel.toLocaleString()}</div><div class="site-stat-label">Fuel gal</div></div>
                             <div class="site-stat"><div class="site-stat-value">${s.totalDef.toLocaleString()}</div><div class="site-stat-label">DEF gal</div></div>
@@ -227,7 +239,7 @@
                             <div style="font-size:12px;color:var(--text-muted)">${esc([s.city, s.state].filter(Boolean).join(', '))}</div>
                         </div>
                         <div style="display:flex;gap:24px;font-size:13px;color:var(--text-secondary);flex-shrink:0">
-                            <span><strong>${s.jobs.length}</strong> jobs</span>
+                            <span><strong>${s.totalEquipment}</strong> equip</span>
                             <span><strong>${s.totalFuel.toLocaleString()}</strong> gal</span>
                             <span>${s.lastDate ? s.lastDate.toLocaleDateString() : '—'}</span>
                         </div>
@@ -244,7 +256,7 @@
                     <th style="width:30px">#</th>
                     <th style="text-align:left">SITE</th>
                     <th style="text-align:left">CITY</th>
-                    <th style="text-align:right">JOBS</th>
+                    <th style="text-align:right">EQUIPMENT</th>
                     <th style="text-align:right">PENDING</th>
                     <th style="text-align:right">ACTIVE</th>
                     <th style="text-align:right">DONE</th>
@@ -263,7 +275,7 @@
                         <td style="color:var(--text-muted);text-align:center">${i + 1}</td>
                         <td><strong style="color:var(--text-primary)">${esc(s.name)}</strong></td>
                         <td style="color:var(--text-secondary)">${esc([s.city, s.state].filter(Boolean).join(', '))}</td>
-                        <td style="text-align:right;font-weight:600">${s.jobs.length}</td>
+                        <td style="text-align:right;font-weight:600">${s.totalEquipment}</td>
                         <td style="text-align:right;color:${p > 0 ? 'var(--warning)' : 'var(--text-muted)'}">${p}</td>
                         <td style="text-align:right;color:${a > 0 ? 'var(--primary)' : 'var(--text-muted)'}">${a}</td>
                         <td style="text-align:right;color:${s.completed > 0 ? 'var(--success)' : 'var(--text-muted)'}">${s.completed}</td>
