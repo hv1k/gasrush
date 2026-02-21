@@ -94,7 +94,7 @@
             const templates = {
                 Jobs: 'name,location,gallons,fuel_type,date,notes',
                 Equipment: 'name,type,location,status,last_service_date',
-                Contacts: 'name,email,phone,company,role',
+                Contacts: 'name,email,company,role',
             };
             const blob = new Blob([templates[type]], { type: 'text/csv' });
             const a = document.createElement('a');

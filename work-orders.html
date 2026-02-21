@@ -75,7 +75,7 @@
         let currentUser = null;
 
         (async () => {
-            currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'fieldworker', 'admin'] });
+            currentUser = await GasRush.init({ roles: ['rental', 'vendor', 'admin'] });
             if (!currentUser) return;
 
             if (currentUser.role === 'fieldworker') {

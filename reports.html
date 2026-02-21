@@ -31,7 +31,6 @@
                             <label class="form-label">Report Type</label>
                             <select class="form-select" id="fType">
                                 <option>Fuel Delivery Summary</option>
-                                <option>Invoice Report</option>
                                 <option>Equipment Usage</option>
                                 <option>Job Completion</option>
                             </select>
@@ -85,7 +84,7 @@
 
             const total = rows.length;
             const completed = rows.filter(r => r.status === 'completed').length;
-            const gallons = rows.reduce((s, r) => s + (parseFloat(r.gallons||r.quantity||0)), 0);
+            const gallons = rows.reduce((s, r) => s + (parseFloat(r.billable_services?.fuelGallons||0)), 0);
 
             let h = `<div class="card"><div class="card-header"><h2 class="card-title">${esc(type)}</h2></div><div style="padding:20px">`;
             h += `<div class="stats-grid"><div class="stat-card"><div class="stat-label">Total Jobs</div><div class="stat-value">${total}</div></div>`;
@@ -98,7 +97,7 @@
                 for (const r of rows.slice(0, 50)) {
                     const d = r.created_at ? new Date(r.created_at).toLocaleDateString() : '—';
                     const bc = r.status === 'completed' ? 'badge-success' : r.status === 'cancelled' ? 'badge-danger' : 'badge-warning';
-                    h += `<tr><td>${d}</td><td>${esc(r.name||r.title||r.id||'—')}</td><td><span class="badge ${bc}">${r.status||'—'}</span></td><td>${r.gallons||r.quantity||'—'}</td></tr>`;
+                    h += `<tr><td>${d}</td><td>${esc(r.job_site_name||r.contract_number||r.id||'—')}</td><td><span class="badge ${bc}">${r.status||'—'}</span></td><td>${r.billable_services?.fuelGallons||'—'}</td></tr>`;
                 }
                 h += '</tbody></table></div>';
             } else {

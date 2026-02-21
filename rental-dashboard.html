@@ -81,15 +81,16 @@
     <script src="mobile.js"></script>
     <script>
         let allOrders = [];
+        let currentUser = null;
 
         (async () => {
-            const user = await GasRush.init({ roles: ['rental', 'admin'] });
-            if (!user) return;
+            currentUser = await GasRush.init({ roles: ['rental', 'admin'] });
+            if (!currentUser) return;
 
             // Greeting
             const hour = new Date().getHours();
             const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-            document.getElementById('greeting').textContent = `${greet}, ${user.name}`;
+            document.getElementById('greeting').textContent = `${greet}, ${currentUser.name}`;
 
             await loadData();
         })();
@@ -97,7 +98,7 @@
         async function loadData() {
             try {
                 let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
-                if (user.role === 'rental') query = query.eq('created_by', user.id);
+                if (currentUser.role === 'rental') query = query.eq('created_by', currentUser.id);
                 const { data: jobs, error } = await query;
 
                 if (error) throw error;

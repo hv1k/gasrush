@@ -109,7 +109,6 @@
                         ${statusBadge}
                     </div>
                     <div class="worker-meta">📧 ${esc(w.email || '—')}</div>
-                    <div class="worker-meta">📱 ${esc(w.phone || '—')}</div>
                     ${currentJob ? `<div class="worker-meta">🚛 ${esc(currentJob.job_site_name)}</div>` : ''}
                 </div>`;
             }).join('') + '</div>';
@@ -128,7 +127,6 @@
                     <div class="job-detail">
                         <div class="job-detail-item"><label>Name</label><div class="value">${esc(w.name)}</div></div>
                         <div class="job-detail-item"><label>Email</label><div class="value">${esc(w.email||'—')}</div></div>
-                        <div class="job-detail-item"><label>Phone</label><div class="value">${esc(w.phone||'—')}</div></div>
                         <div class="job-detail-item"><label>Company</label><div class="value">${esc(w.company||'—')}</div></div>
                     </div>`;
 
@@ -184,7 +182,6 @@
                         <div class="form-group"><label class="form-label">Email</label><input type="email" id="editEmail" class="form-input" value="${esc(w.email||'')}"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="editPhone" class="form-input" value="${esc(w.phone||'')}"></div>
                         <div class="form-group"><label class="form-label">Company</label><input type="text" id="editCompany" class="form-input" value="${esc(w.company||'')}"></div>
                     </div>
                     <div class="form-group"><label class="form-label">Password (leave blank to keep current)</label><input type="password" id="editPassword" class="form-input" placeholder="••••••••"></div>
@@ -242,7 +239,6 @@
                         <div class="form-group"><label class="form-label">Email *</label><input type="email" id="addEmail" class="form-input" placeholder="email@company.com"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="addPhone" class="form-input" placeholder="(555) 123-4567"></div>
                         <div class="form-group"><label class="form-label">Company</label><input type="text" id="addCompany" class="form-input" placeholder="Company name"></div>
                     </div>
                     <div class="form-group"><label class="form-label">Password *</label><input type="password" id="addPassword" class="form-input" placeholder="Initial password"></div>

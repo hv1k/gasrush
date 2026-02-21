@@ -52,11 +52,11 @@
 
             const vendors = {};
             for (const r of rows) {
-                const v = r.vendor_name || r.vendor || 'Unknown';
+                const v = r.assigned_vendor || 'Unknown';
                 if (!vendors[v]) vendors[v] = { total: 0, completed: 0, gallons: 0 };
                 vendors[v].total++;
                 if (r.status === 'completed') vendors[v].completed++;
-                vendors[v].gallons += parseFloat(r.gallons || r.quantity || 0);
+                vendors[v].gallons += parseFloat(r.billable_services?.fuelGallons || 0);
             }
 
             render(vendors);
