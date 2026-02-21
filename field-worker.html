@@ -66,6 +66,7 @@
             const user = await GasRush.init({ roles: ['fieldworker', 'admin'] });
             if (!user) return;
             currentUser = user;
+            var allJobs = [];
 
             const hour = new Date().getHours();
             const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -84,7 +85,8 @@
 
                 const { data: jobs, error } = await query;
                 if (error) throw error;
-                const all = jobs || [];
+                allJobs = jobs || [];
+                const all = allJobs;
 
                 const active = all.filter(j => ['active', 'assigned', 'pending'].includes(j.status)).length;
                 const today = new Date().toISOString().slice(0, 10);
