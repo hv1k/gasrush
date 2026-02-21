@@ -344,8 +344,9 @@
                 }
             }
 
-            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>Unit #</th><th>Description</th><th>Deliveries</th><th>Total Diesel</th><th>Total DEF</th><th>Last Gen Hrs</th></tr></thead><tbody>' +
+            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>QTY</th><th>Unit #</th><th>Description</th><th>Deliveries</th><th>Total Diesel</th><th>Total DEF</th><th>Last Gen Hrs</th></tr></thead><tbody>' +
                 Object.values(unique).map(e => `<tr>
+                    <td>${e.quantity || 1}</td>
                     <td><strong>${esc(e.equipment_number || '—')}</strong></td>
                     <td>${esc(e.description || '—')}</td>
                     <td>${e.count}</td>
