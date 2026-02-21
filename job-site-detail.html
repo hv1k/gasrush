@@ -53,26 +53,12 @@
                 <div class="empty-state"><h3>Loading...</h3></div>
             </div>
 
-            <!-- Job History -->
-            <div class="card">
+            <!-- Equipment at this site -->
+            <div class="card" id="equipSection" style="display:none">
                 <div class="card-header">
-                    <h2 class="card-title">Job History</h2>
+                    <h2 class="card-title">Equipment at this Site</h2>
                 </div>
-                <div class="filter-row">
-                    <select class="form-select" id="statusFilter" style="width:160px" onchange="renderJobs()">
-                        <option value="">All Status</option>
-                        <option value="completed">Completed</option>
-                        <option value="active">Active</option>
-                        <option value="pending">Pending</option>
-                    </select>
-                    <select class="form-select" id="typeFilter" style="width:160px" onchange="renderJobs()">
-                        <option value="">All Types</option>
-                        <option value="fuel-delivery">Fuel Delivery</option>
-                        <option value="service">Service</option>
-                        <option value="swap">Swap</option>
-                    </select>
-                </div>
-                <div id="jobHistory"></div>
+                <div id="equipList"></div>
             </div>
 
             <!-- Delivery History -->
@@ -81,14 +67,6 @@
                     <h2 class="card-title">Delivery History</h2>
                 </div>
                 <div id="deliveryList"></div>
-            </div>
-
-            <!-- Equipment at this site -->
-            <div class="card mt-4" id="equipSection" style="display:none">
-                <div class="card-header">
-                    <h2 class="card-title">Equipment at this Site</h2>
-                </div>
-                <div id="equipList"></div>
             </div>
         </main>
     </div>
@@ -143,9 +121,8 @@
                 }
 
                 renderHeader();
-                renderJobs();
-                renderDeliveries();
                 renderEquipment();
+                renderDeliveries();
             } catch(e) {
                 console.error(e);
                 document.getElementById('siteHeader').innerHTML = '<div class="empty-state"><h3>Failed to load site data</h3></div>';
@@ -179,52 +156,6 @@
                 <div class="stat-card"><div class="stat-label">First Job</div><div class="stat-value" style="font-size:16px">${firstDate}</div></div>
                 <div class="stat-card"><div class="stat-label">Latest Job</div><div class="stat-value" style="font-size:16px">${lastDate}</div></div>
             `;
-        }
-
-        function renderJobs() {
-            const status = document.getElementById('statusFilter').value;
-            const type = document.getElementById('typeFilter').value;
-            let filtered = allJobs;
-
-            if (status) {
-                if (status === 'active') filtered = filtered.filter(j => ['active', 'assigned', 'in-progress', 'accepted'].includes(j.status));
-                else if (status === 'pending') filtered = filtered.filter(j => ['pending', 'created'].includes(j.status));
-                else filtered = filtered.filter(j => j.status === status);
-            }
-            if (type) filtered = filtered.filter(j => j.job_type === type);
-
-            const container = document.getElementById('jobHistory');
-            if (!filtered.length) {
-                container.innerHTML = '<div class="empty-state" style="padding:32px"><h3>No jobs match filters</h3></div>';
-                return;
-            }
-
-            container.innerHTML = '<div class="timeline">' + filtered.map(j => {
-                const date = j.created_at ? new Date(j.created_at).toLocaleDateString() : '—';
-                const fuel = parseFloat(j.billable_services?.fuelGallons) || 0;
-                const def = parseFloat(j.billable_services?.defGallons) || 0;
-                const status = j.status || 'pending';
-                const bc = status === 'completed' ? 'badge-success' : ['active', 'assigned', 'in-progress', 'accepted'].includes(status) ? 'badge-primary' : status === 'cancelled' ? 'badge-danger' : 'badge-warning';
-                const jobEquip = siteEquip.filter(e => e.job_id === j.id);
-
-                return `<div class="timeline-item">
-                    <div class="timeline-date">${date}</div>
-                    <div class="timeline-content">
-                        <div class="timeline-type">${(j.job_type || 'delivery').replace('-', ' ')} <span class="badge ${bc}" style="font-size:11px;vertical-align:middle">${status}</span></div>
-                        <div class="timeline-details">
-                            ${j.contract_number ? `<span>Contract: <strong>${esc(j.contract_number)}</strong></span>` : ''}
-                            ${j.po_number ? `<span>PO: <strong>${esc(j.po_number)}</strong></span>` : ''}
-                            ${fuel > 0 ? `<span class="fuel-tag diesel">⛽ ${fuel.toLocaleString()} gal diesel</span>` : ''}
-                            ${def > 0 ? `<span class="fuel-tag def">💧 ${def.toLocaleString()} gal DEF</span>` : ''}
-                            ${j.field_ticket_id ? `<span>Ticket: ${esc(j.field_ticket_id)}</span>` : ''}
-                            ${j.work_performed ? `<div style="margin-top:4px;font-style:italic">${esc(j.work_performed)}</div>` : ''}
-                        </div>
-                        ${jobEquip.length ? `<div class="equip-list">${jobEquip.map(e =>
-                            `<div class="equip-item">🔧 ${e.quantity || 1}x ${esc(e.equipment_number || '')} — ${esc(e.description || '')}</div>`
-                        ).join('')}</div>` : ''}
-                    </div>
-                </div>`;
-            }).join('') + '</div>';
         }
 
         function renderDeliveries() {
