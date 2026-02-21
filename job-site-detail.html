@@ -207,10 +207,10 @@
             const j = allJobs[0]; // most recent job at this site
             document.getElementById('jobDetailsSection').style.display = '';
 
-            const field = (label, val) => val ? `<div class="job-detail-item"><label>${label}</label><div class="value">${esc(val)}</div></div>` : '';
+            const field = (label, val) => val ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted);font-size:13px">${label}</span><span style="font-size:14px;font-weight:500;text-align:right">${esc(val)}</span></div>` : '';
             const genInfo = j.generator_info || {};
 
-            let html = '<div class="job-detail">';
+            let html = '<div>';
             html += field('Job Type', (j.job_type || '').replace('-', ' '));
             html += field('Status', j.status);
             html += field('Contract #', j.contract_number);
@@ -230,7 +230,7 @@
 
             // Field Ticket
             if (j.field_ticket_id || j.ticket_type || j.area || j.work_performed) {
-                html += '<h3 style="margin-top:16px;font-size:14px;color:var(--primary)">Field Ticket</h3><div class="job-detail">';
+                html += '<h3 style="margin-top:16px;font-size:14px;color:var(--primary)">Field Ticket</h3><div>';
                 html += field('Ticket ID', j.field_ticket_id);
                 html += field('Ticket Type', j.ticket_type);
                 html += field('Area', j.area);
@@ -242,7 +242,7 @@
 
             // Generator Info
             if (j.old_gen_hour || j.new_gen_id || j.new_gen_hour || Object.keys(genInfo).length) {
-                html += '<h3 style="margin-top:16px;font-size:14px;color:var(--primary)">Generator Info</h3><div class="job-detail">';
+                html += '<h3 style="margin-top:16px;font-size:14px;color:var(--primary)">Generator Info</h3><div>';
                 html += field('Old Gen Hours', j.old_gen_hour);
                 html += field('New Gen ID', j.new_gen_id);
                 html += field('New Gen Hours', j.new_gen_hour);
