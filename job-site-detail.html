@@ -199,69 +199,72 @@
         }
 
         function exportExcel() {
-            if (!allJobs.length) { alert('No data to export'); return; }
-
-            // Summary sheet
-            const totalFuel = allJobs.reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons) || 0), 0);
-            const totalDef = allJobs.reduce((s, j) => s + (parseFloat(j.billable_services?.defGallons) || 0), 0);
-            const completed = allJobs.filter(j => j.status === 'completed').length;
-            const first = allJobs[allJobs.length - 1];
-
-            const summary = [
-                ['Job Site Summary'],
-                ['Site Name', siteName],
-                ['Address', [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ')],
-                ['Customer', first.customer_name || ''],
-                ['Contact', first.contact_name || '', first.contact_phone || ''],
-                [],
-                ['Total Jobs', allJobs.length],
-                ['Completed', completed],
-                ['Total Diesel (gal)', totalFuel],
-                ['Total DEF (gal)', totalDef],
-                ['Date Range', allJobs.length ? new Date(allJobs[allJobs.length-1].created_at).toLocaleDateString() + ' — ' + new Date(allJobs[0].created_at).toLocaleDateString() : ''],
-            ];
-
-            // Job detail rows
-            const headers = ['Date', 'Type', 'Status', 'Contract #', 'PO #', 'Diesel (gal)', 'DEF (gal)', 'Field Ticket', 'Work Performed', 'Notes'];
-            const rows = allJobs.map(j => [
-                j.created_at ? new Date(j.created_at).toLocaleDateString() : '',
-                (j.job_type || '').replace('-', ' '),
-                j.status || '',
-                j.contract_number || '',
-                j.po_number || '',
-                parseFloat(j.billable_services?.fuelGallons) || '',
-                parseFloat(j.billable_services?.defGallons) || '',
-                j.field_ticket_id || '',
-                j.work_performed || '',
-                j.instructions || ''
-            ]);
-
-            // Equipment rows
-            const equipHeaders = ['Unit #', 'Description', 'Qty', 'Job Date', 'Contract #'];
-            const equipRows = siteEquip.map(e => {
-                const job = allJobs.find(j => j.id === e.job_id);
-                return [
-                    e.equipment_number || '',
-                    e.description || '',
-                    e.quantity || 1,
-                    job?.created_at ? new Date(job.created_at).toLocaleDateString() : '',
-                    job?.contract_number || ''
-                ];
-            });
-
-            // Build workbook
             const wb = XLSX.utils.book_new();
+            const first = allJobs[0] || {};
+            const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
 
+            // Totals from deliveries
+            const totalDiesel = siteDeliveries.reduce((s, d) => s + (parseFloat(d.gallons) || 0), 0);
+            const totalDef = siteDeliveries.reduce((s, d) => s + (parseFloat(d.def_gallons) || 0), 0);
+
+            // ── Sheet 1: Summary ──
+            const summary = [
+                ['', '', siteName],
+                [],
+                ['Site Information'],
+                ['Address', addr],
+                ['Customer', first.customer_name || ''],
+                ['Contact', first.contact_name || ''],
+                ['Phone', first.contact_phone || ''],
+                ['Contract #', first.contract_number || ''],
+                ['PO #', first.po_number || ''],
+                [],
+                ['Fuel Summary'],
+                ['Total Deliveries', siteDeliveries.length],
+                ['Total Diesel (gal)', totalDiesel],
+                ['Total DEF (gal)', totalDef],
+                ['Total Equipment Units', siteEquip.length],
+                [],
+                ['Report Generated', new Date().toLocaleString()],
+            ];
             const ws1 = XLSX.utils.aoa_to_sheet(summary);
+            ws1['!cols'] = [{ wch: 22 }, { wch: 45 }, { wch: 30 }];
             XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
 
-            const ws2 = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-            ws2['!cols'] = headers.map(() => ({ wch: 16 }));
-            XLSX.utils.book_append_sheet(wb, ws2, 'Job History');
+            // ── Sheet 2: Equipment ──
+            if (siteEquip.length) {
+                const eqData = [['Unit #', 'Description', 'QTY']];
+                siteEquip.forEach(e => {
+                    eqData.push([e.equipment_number || '—', e.description || '', e.quantity || 1]);
+                });
+                const ws2 = XLSX.utils.aoa_to_sheet(eqData);
+                ws2['!cols'] = [{ wch: 16 }, { wch: 35 }, { wch: 8 }];
+                XLSX.utils.book_append_sheet(wb, ws2, 'Equipment');
+            }
 
-            if (equipRows.length) {
-                const ws3 = XLSX.utils.aoa_to_sheet([equipHeaders, ...equipRows]);
-                XLSX.utils.book_append_sheet(wb, ws3, 'Equipment');
+            // ── Sheet 3: Delivery History ──
+            if (siteDeliveries.length) {
+                const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Notes']];
+                siteDeliveries.forEach(d => {
+                    const dt = d.timestamp ? new Date(d.timestamp) : null;
+                    delData.push([
+                        dt ? dt.toLocaleDateString() : '',
+                        dt ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+                        d.delivered_by_name || '',
+                        d.unit_number || '',
+                        parseFloat(d.gallons) || 0,
+                        parseFloat(d.def_gallons) || 0,
+                        d.unit_hours || '',
+                        d.notes || ''
+                    ]);
+                });
+                // Totals row
+                delData.push([]);
+                delData.push(['', '', '', 'TOTALS', totalDiesel, totalDef, '', '']);
+
+                const ws3 = XLSX.utils.aoa_to_sheet(delData);
+                ws3['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
+                XLSX.utils.book_append_sheet(wb, ws3, 'Delivery History');
             }
 
             const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_report.xlsx';
