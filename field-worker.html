@@ -6,21 +6,36 @@
     <title>GasRush — Field Worker</title>
     <link rel="stylesheet" href="theme.css">
     <style>
-        .job-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+        .job-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
         .job-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .job-card.active-job { border-color: var(--primary); border-width: 2px; }
         .job-card-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; }
         .job-card-title { font-weight: 600; font-size: 16px; color: var(--text-primary); }
         .job-card-detail { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
         .job-card-actions { display: flex; gap: 8px; margin-top: 16px; }
+        .fuel-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .fuel-form h3 { font-size: 14px; color: var(--primary); margin-bottom: 12px; }
+        .fuel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .fuel-input { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 14px; width: 100%; }
+        .fuel-input:focus { border-color: var(--primary); outline: none; }
+        .fuel-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block; }
+        .unit-row { display: grid; grid-template-columns: 80px 1fr 1fr 1fr 40px; gap: 8px; align-items: end; margin-bottom: 8px; }
+        .unit-row .fuel-label { font-size: 11px; }
+        .add-unit-btn { font-size: 13px; color: var(--primary); cursor: pointer; background: none; border: none; padding: 8px 0; }
+        .complete-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .notes-input { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 14px; width: 100%; min-height: 60px; resize: vertical; }
+        .confirm-complete { background: var(--success); color: white; font-size: 15px; padding: 12px 24px; }
+        .confirm-complete:hover { opacity: 0.9; }
+        @media(max-width:500px) {
+            .fuel-row { grid-template-columns: 1fr; }
+            .unit-row { grid-template-columns: 60px 1fr 1fr 1fr 32px; gap: 4px; }
+        }
     </style>
 </head>
 <body>
     <div class="app-layout">
         <aside class="sidebar">
-            <div class="sidebar-brand">
-                <div class="logo">⛽</div>
-                <span class="brand-name">GasRush</span>
-            </div>
+            <div class="sidebar-brand"><div class="logo">⛽</div><span class="brand-name">GasRush</span></div>
             <nav id="sidebarNav"></nav>
             <div id="sidebarFooter"></div>
         </aside>
@@ -32,22 +47,12 @@
             </div>
 
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Active Jobs</div>
-                    <div class="stat-value" id="statActive">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Completed Today</div>
-                    <div class="stat-value" id="statToday">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Total Gallons Delivered</div>
-                    <div class="stat-value" id="statGallons">—</div>
-                    <div class="stat-sub">gal</div>
-                </div>
+                <div class="stat-card"><div class="stat-label">Active Jobs</div><div class="stat-value" id="statActive">—</div></div>
+                <div class="stat-card"><div class="stat-label">Completed Today</div><div class="stat-value" id="statToday">—</div></div>
+                <div class="stat-card"><div class="stat-label">Total Gallons Delivered</div><div class="stat-value" id="statGallons">—</div><div class="stat-sub">gal</div></div>
             </div>
 
-            <div class="card" style="background:transparent;border:none;box-shadow:none;padding:0;">
+            <div style="margin-top:24px">
                 <h2 style="margin-bottom:16px;">Assigned Jobs</h2>
                 <div id="jobsContainer" class="job-cards">
                     <div class="empty-state"><div class="empty-state-icon">🚛</div><h3>Loading...</h3></div>
@@ -61,12 +66,13 @@
     <script src="mobile.js"></script>
     <script>
         let currentUser = null;
+        let allJobs = [];
+        let unitCounters = {}; // track unit rows per job
 
         (async () => {
             const user = await GasRush.init({ roles: ['fieldworker', 'admin'] });
             if (!user) return;
             currentUser = user;
-            var allJobs = [];
 
             const hour = new Date().getHours();
             const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -78,7 +84,6 @@
         async function loadData() {
             try {
                 let query = GasRush.db().from('jobs').select('*').order('created_at', { ascending: false });
-
                 if (currentUser.role === 'fieldworker') {
                     query = query.eq('assigned_worker', currentUser.id);
                 }
@@ -86,89 +91,199 @@
                 const { data: jobs, error } = await query;
                 if (error) throw error;
                 allJobs = jobs || [];
-                const all = allJobs;
 
-                const active = all.filter(j => ['active', 'assigned', 'pending'].includes(j.status)).length;
+                const active = allJobs.filter(j => ['active', 'assigned', 'pending', 'in-progress'].includes(j.status)).length;
                 const today = new Date().toISOString().slice(0, 10);
-                const completedToday = all.filter(j => j.status === 'completed' && j.completed_at && j.completed_at.startsWith(today)).length;
-                const gallons = all.filter(j => j.status === 'completed').reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
+                const completedToday = allJobs.filter(j => j.status === 'completed' && j.completed_at && j.completed_at.startsWith(today)).length;
+                const gallons = allJobs.filter(j => j.status === 'completed').reduce((s, j) => s + (parseFloat(j.billable_services?.fuelGallons || 0)), 0);
 
                 document.getElementById('statActive').textContent = active;
                 document.getElementById('statToday').textContent = completedToday;
                 document.getElementById('statGallons').textContent = gallons.toLocaleString();
 
-                renderJobs(all);
+                renderJobs();
             } catch(e) {
                 console.error('Failed to load:', e);
-                renderJobs([]);
+                document.getElementById('jobsContainer').innerHTML = '<div class="empty-state"><h3>Failed to load jobs</h3></div>';
             }
         }
 
-        function renderJobs(jobs) {
+        function renderJobs() {
             const container = document.getElementById('jobsContainer');
-            const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
+            const activeJobs = allJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
 
             if (activeJobs.length === 0) {
-                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🚛</div><h3>No jobs assigned</h3><p>Check back later for new assignments</p></div>`;
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚛</div><h3>No jobs assigned</h3><p>Check back later for new assignments</p></div>';
                 return;
             }
 
             container.innerHTML = activeJobs.map(job => {
                 const status = job.status || 'pending';
-                const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
+                const isActive = ['active', 'in-progress'].includes(status);
+                const isAssigned = ['pending', 'assigned'].includes(status);
+                const bc = isActive ? 'badge-success' : isAssigned ? 'badge-primary' : 'badge-warning';
                 const loc = [job.address_street, job.address_city, job.address_state].filter(Boolean).join(', ') || '—';
-                const gal = job.billable_services?.fuelGallons || '—';
-                const isActive = ['active', 'assigned', 'pending'].includes(status);
 
-                let actions = '';
-                if (status === 'pending' || status === 'assigned') {
-                    actions = `<button class="btn btn-primary" onclick="updateStatus('${job.id}','active')">▶️ Start</button>`;
-                } else if (status === 'active') {
-                    actions = `<button class="btn btn-primary" onclick="updateStatus('${job.id}','completed')">✅ Complete</button>`;
-                }
-
-                return `<div class="job-card">
+                let html = `<div class="job-card ${isActive ? 'active-job' : ''}">
                     <div class="job-card-header">
                         <div class="job-card-title">${esc(job.job_site_name || 'Untitled')}</div>
-                        <span class="badge ${bc}">${status}</span>
+                        <span class="badge ${bc}">${isActive ? '🔴 In Progress' : status}</span>
                     </div>
                     <div class="job-card-detail">📍 ${esc(loc)}</div>
-                    <div class="job-card-detail">⛽ ${gal} gal</div>
                     ${job.customer_name ? `<div class="job-card-detail">👤 ${esc(job.customer_name)}</div>` : ''}
-                    ${job.notes ? `<div class="job-card-detail" style="margin-top:8px;font-style:italic;">${esc(job.notes)}</div>` : ''}
-                    ${actions ? `<div class="job-card-actions">${actions}</div>` : ''}
-                </div>`;
+                    ${job.contact_name ? `<div class="job-card-detail">📞 ${esc(job.contact_name)} ${esc(job.contact_phone||'')}</div>` : ''}
+                    ${job.instructions ? `<div class="job-card-detail" style="margin-top:8px;font-style:italic;font-size:13px">${esc(job.instructions).substring(0,120)}${job.instructions.length > 120 ? '...' : ''}</div>` : ''}`;
+
+                // ASSIGNED → Show Start button only
+                if (isAssigned) {
+                    html += `<div class="job-card-actions">
+                        <button class="btn btn-primary" onclick="startJob('${job.id}')">▶️ Start Job</button>
+                    </div>`;
+                }
+
+                // ACTIVE → Show fuel input form + complete
+                if (isActive) {
+                    const jid = job.id;
+                    const bs = job.billable_services || {};
+                    html += `<div class="fuel-form" id="fuel-${jid}">
+                        <h3>⛽ Fuel Delivery Data</h3>
+                        <div id="units-${jid}">
+                            <div class="unit-row" id="unit-${jid}-0">
+                                <div><label class="fuel-label">QTY</label><input type="number" class="fuel-input" id="uqty-${jid}-0" value="1" min="1"></div>
+                                <div><label class="fuel-label">Unit #</label><input type="text" class="fuel-input" id="unum-${jid}-0" placeholder="A0147"></div>
+                                <div><label class="fuel-label">Diesel (gal)</label><input type="number" class="fuel-input" id="udiesel-${jid}-0" step="0.1" placeholder="0"></div>
+                                <div><label class="fuel-label">DEF (gal)</label><input type="number" class="fuel-input" id="udef-${jid}-0" step="0.1" placeholder="0"></div>
+                                <div style="padding-top:18px"></div>
+                            </div>
+                        </div>
+                        <button class="add-unit-btn" onclick="addUnitRow('${jid}')">+ Add Another Unit</button>
+
+                        <div class="complete-section">
+                            <label class="fuel-label">Notes (optional)</label>
+                            <textarea class="notes-input" id="notes-${jid}" placeholder="Any notes about this delivery..."></textarea>
+                            <div style="display:flex;gap:8px;margin-top:12px">
+                                <button class="btn confirm-complete" onclick="completeJob('${jid}')">✅ Complete Job</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                html += '</div>';
+                return html;
             }).join('');
+
+            // Reset unit counters
+            activeJobs.filter(j => ['active','in-progress'].includes(j.status)).forEach(j => {
+                if (!unitCounters[j.id]) unitCounters[j.id] = 1;
+            });
         }
 
-        async function updateStatus(id, status) {
-            try {
-                const update = { status };
-                if (status === 'completed') update.completed_at = new Date().toISOString();
-                // started_at column doesn't exist on jobs table
+        function addUnitRow(jid) {
+            const idx = unitCounters[jid] || 1;
+            unitCounters[jid] = idx + 1;
+            const container = document.getElementById('units-' + jid);
+            const row = document.createElement('div');
+            row.className = 'unit-row';
+            row.id = `unit-${jid}-${idx}`;
+            row.innerHTML = `
+                <div><input type="number" class="fuel-input" id="uqty-${jid}-${idx}" value="1" min="1"></div>
+                <div><input type="text" class="fuel-input" id="unum-${jid}-${idx}" placeholder="Unit #"></div>
+                <div><input type="number" class="fuel-input" id="udiesel-${jid}-${idx}" step="0.1" placeholder="0"></div>
+                <div><input type="number" class="fuel-input" id="udef-${jid}-${idx}" step="0.1" placeholder="0"></div>
+                <div><button class="btn btn-secondary" style="padding:8px;font-size:12px" onclick="document.getElementById('unit-${jid}-${idx}').remove()">✕</button></div>`;
+            container.appendChild(row);
+        }
 
+        async function startJob(id) {
+            try {
                 const job = allJobs.find(j => j.id === id);
                 const oldStatus = job?.status || 'unknown';
 
-                const { error } = await GasRush.db().from('jobs').update(update).eq('id', id);
+                const { error } = await GasRush.db().from('jobs').update({ status: 'active' }).eq('id', id);
                 if (error) throw error;
 
-                // Audit log
-                try {
-                    await GasRush.db().from('audit_logs').insert({
-                        user_id: currentUser.id?.length === 36 ? currentUser.id : null,
-                        user_name: currentUser.name || currentUser.email,
-                        action: 'status_change',
-                        target_type: 'job',
-                        target_id: id,
-                        details: { from: oldStatus, to: status }
-                    });
-                } catch(e2) { console.warn('Audit log failed:', e2); }
-
+                await logAudit(id, 'status_change', { from: oldStatus, to: 'active' });
                 await loadData();
             } catch(e) {
-                alert('Failed to update: ' + (e.message || e));
+                alert('Failed to start: ' + (e.message || e));
             }
+        }
+
+        async function completeJob(jid) {
+            // Collect all unit data
+            const units = [];
+            let totalDiesel = 0, totalDef = 0;
+            const container = document.getElementById('units-' + jid);
+            const rows = container.querySelectorAll('.unit-row');
+
+            rows.forEach((row, i) => {
+                const idx = row.id.split('-').pop();
+                const qty = parseInt(document.getElementById(`uqty-${jid}-${idx}`)?.value) || 1;
+                const num = document.getElementById(`unum-${jid}-${idx}`)?.value?.trim() || '';
+                const diesel = parseFloat(document.getElementById(`udiesel-${jid}-${idx}`)?.value) || 0;
+                const def = parseFloat(document.getElementById(`udef-${jid}-${idx}`)?.value) || 0;
+                if (num || diesel || def) {
+                    units.push({ qty, unit_number: num, diesel, def });
+                    totalDiesel += diesel;
+                    totalDef += def;
+                }
+            });
+
+            const notes = document.getElementById('notes-' + jid)?.value?.trim() || '';
+
+            // Confirm
+            let msg = `Complete this job?\n\n`;
+            if (units.length) {
+                msg += units.map(u => `Unit ${u.unit_number || '—'}: ${u.diesel}gal diesel, ${u.def}gal DEF`).join('\n');
+                msg += `\n\nTotal: ${totalDiesel} gal diesel, ${totalDef} gal DEF`;
+            } else {
+                msg += 'No fuel data entered.';
+            }
+            if (!confirm(msg)) return;
+
+            try {
+                const job = allJobs.find(j => j.id === jid);
+                const bs = { ...(job?.billable_services || {}), fuelGallons: totalDiesel || null, defGallons: totalDef || null, units: units };
+
+                const update = {
+                    status: 'completed',
+                    completed_at: new Date().toISOString(),
+                    billable_services: bs
+                };
+
+                const { error } = await GasRush.db().from('jobs').update(update).eq('id', jid);
+                if (error) throw error;
+
+                // Create invoice
+                try {
+                    await GasRush.db().from('invoices').insert({
+                        job_id: jid,
+                        worker_id: currentUser.id?.length === 36 ? currentUser.id : null,
+                        worker_name: currentUser.name,
+                        invoice_date: new Date().toISOString().slice(0, 10),
+                        invoice_time: new Date().toTimeString().slice(0, 5),
+                        notes: notes || null,
+                        units_data: units.length ? units : null,
+                        total_diesel: totalDiesel,
+                        total_def: totalDef
+                    });
+                } catch(e2) { console.warn('Invoice creation failed:', e2); }
+
+                await logAudit(jid, 'status_change', { from: job?.status || 'active', to: 'completed', diesel: totalDiesel, def: totalDef });
+                await loadData();
+            } catch(e) {
+                alert('Failed to complete: ' + (e.message || e));
+            }
+        }
+
+        async function logAudit(jobId, action, details) {
+            try {
+                await GasRush.db().from('audit_logs').insert({
+                    user_id: currentUser.id?.length === 36 ? currentUser.id : null,
+                    user_name: currentUser.name || currentUser.email,
+                    action, target_type: 'job', target_id: jobId, details
+                });
+            } catch(e) { console.warn('Audit log failed:', e); }
         }
 
         function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
