@@ -24,6 +24,21 @@
         }
         .bulk-bar label { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
         .empty-msg { padding: 48px; text-align: center; color: var(--text-muted); }
+        .delivery-card { background:var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
+        .delivery-card .dc-header { display:flex; justify-content:space-between; margin-bottom:12px; }
+        .delivery-card .dc-site { font-weight:600; font-size:15px; color:var(--text-primary); }
+        .delivery-card .dc-date { font-size:12px; color:var(--text-muted); }
+        .delivery-card .dc-details { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; font-size:13px; }
+        .delivery-card .dc-label { color:var(--text-muted); font-size:11px; text-transform:uppercase; font-weight:600; }
+        .delivery-card .dc-value { color:var(--text-primary); font-weight:600; }
+        .delivery-card .dc-rates { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+        .delivery-card .dc-rates label { font-size:12px; color:var(--text-muted); }
+        @media(max-width:768px) {
+            .bulk-bar { flex-direction:column; align-items:stretch; }
+            .bulk-bar > div { display:flex; justify-content:space-between; align-items:center; }
+            .rate-input { width:100px; }
+            .delivery-card .dc-details { grid-template-columns:1fr 1fr; }
+        }
         .status-badge {
             display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
         }
@@ -129,32 +144,31 @@
 
             document.getElementById('bulkBar').style.display = '';
 
-            let h = '<div class="table-wrapper"><table><thead><tr>';
-            h += '<th>Date</th><th>Job Site</th><th>Unit #</th><th>Driver</th>';
-            h += '<th>Diesel Gal</th><th>DEF Gal</th><th>Gen Hours</th>';
-            h += '<th>Diesel Rate</th><th>DEF Rate</th><th>Delivery Fee</th>';
-            h += '<th></th>';
-            h += '</tr></thead><tbody>';
-
+            let h = '';
             pendingDeliveries.forEach((d, i) => {
                 const job = jobMap[d.job_id] || {};
-                const date = d.timestamp ? new Date(d.timestamp).toLocaleDateString() : '—';
-                h += `<tr id="row-${d.id}">
-                    <td>${date}</td>
-                    <td>${esc(job.job_site_name || '—')}</td>
-                    <td><strong>${esc(d.unit_number || '—')}</strong></td>
-                    <td>${esc(d.delivered_by_name || '—')}</td>
-                    <td>${d.gallons || 0}</td>
-                    <td>${d.def_gallons || 0}</td>
-                    <td>${d.unit_hours || '—'}</td>
-                    <td><input type="number" class="rate-input diesel-rate" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></td>
-                    <td><input type="number" class="rate-input def-rate" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></td>
-                    <td><input type="number" class="rate-input del-fee" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></td>
-                    <td><button class="confirm-btn" onclick="confirmOne('${d.id}')">Confirm</button></td>
-                </tr>`;
+                const date = d.timestamp ? new Date(d.timestamp).toLocaleString([], { month:'numeric', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+                h += `<div class="delivery-card" id="row-${d.id}">
+                    <div class="dc-header">
+                        <div class="dc-site">${esc(job.job_site_name || '—')}</div>
+                        <div class="dc-date">${date}</div>
+                    </div>
+                    <div class="dc-details">
+                        <div><div class="dc-label">Unit #</div><div class="dc-value">${esc(d.unit_number || '—')}</div></div>
+                        <div><div class="dc-label">Driver</div><div class="dc-value">${esc(d.delivered_by_name || '—')}</div></div>
+                        <div><div class="dc-label">Gen Hours</div><div class="dc-value">${d.unit_hours || '—'}</div></div>
+                        <div><div class="dc-label">Diesel</div><div class="dc-value">${d.gallons || 0} gal</div></div>
+                        <div><div class="dc-label">DEF</div><div class="dc-value">${d.def_gallons || 0} gal</div></div>
+                    </div>
+                    <div class="dc-rates">
+                        <div><label>Diesel $/gal</label><br><input type="number" class="rate-input diesel-rate" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></div>
+                        <div><label>DEF $/gal</label><br><input type="number" class="rate-input def-rate" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></div>
+                        <div><label>Delivery Fee</label><br><input type="number" class="rate-input del-fee" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></div>
+                        <button class="confirm-btn" style="align-self:flex-end" onclick="confirmOne('${d.id}')">Confirm</button>
+                    </div>
+                </div>`;
             });
 
-            h += '</tbody></table></div>';
             list.innerHTML = h;
         }
 
