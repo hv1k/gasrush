@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasRush — Review Deliveries</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        .rate-input {
+            width: 90px; padding: 8px; font-size: 14px; text-align: right;
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;
+            color: var(--text-primary);
+        }
+        .rate-input:focus { border-color: var(--primary); outline: none; }
+        .confirm-btn {
+            padding: 8px 16px; font-size: 13px; font-weight: 600;
+            background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer;
+        }
+        .confirm-btn:hover { opacity: 0.9; }
+        .confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .bulk-bar {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+        }
+        .bulk-bar label { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+        .empty-msg { padding: 48px; text-align: center; color: var(--text-muted); }
+        .status-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+        }
+        .status-badge.pending { background: var(--warning-light); color: var(--warning); }
+        .status-badge.confirmed { background: var(--success-light, #d4edda); color: var(--success, #28a745); }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand"><div class="logo">⛽</div><span class="brand-name">GasRush</span></div>
+            <nav id="sidebarNav"></nav>
+            <div id="sidebarFooter"></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Review Deliveries</h1>
+                <p>Confirm pending deliveries and set rates</p>
+            </div>
+
+            <div class="bulk-bar" id="bulkBar" style="display:none">
+                <label>Apply to all:</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                    <span style="font-size:13px;color:var(--text-muted)">Diesel $/gal</span>
+                    <input type="number" id="bulkDieselRate" class="rate-input" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div style="display:flex;align-items:center;gap:4px">
+                    <span style="font-size:13px;color:var(--text-muted)">DEF $/gal</span>
+                    <input type="number" id="bulkDefRate" class="rate-input" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div style="display:flex;align-items:center;gap:4px">
+                    <span style="font-size:13px;color:var(--text-muted)">Delivery Fee $</span>
+                    <input type="number" id="bulkDeliveryFee" class="rate-input" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <button class="confirm-btn" onclick="confirmAll()">Confirm All</button>
+            </div>
+
+            <div class="card">
+                <div id="deliveryList">
+                    <div class="empty-msg">Loading...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="mobile.js"></script>
+    <script>
+        let currentUser = null;
+        let pendingDeliveries = [];
+        let jobMap = {};
+
+        (async () => {
+            const user = await GasRush.init({ roles: ['vendor'] });
+            if (!user) return;
+            currentUser = user;
+            await loadPending();
+        })();
+
+        async function loadPending() {
+            try {
+                // Get jobs assigned to this vendor
+                const { data: jobs, error: jobErr } = await GasRush.db()
+                    .from('jobs')
+                    .select('*')
+                    .eq('assigned_vendor', currentUser.vendor_id);
+                if (jobErr) throw jobErr;
+                if (!jobs || !jobs.length) {
+                    document.getElementById('deliveryList').innerHTML = '<div class="empty-msg">No jobs assigned to your company</div>';
+                    return;
+                }
+
+                jobMap = {};
+                jobs.forEach(j => { jobMap[j.id] = j; });
+                const jobIds = jobs.map(j => j.id);
+
+                // Get pending deliveries for those jobs
+                const { data: dels, error: delErr } = await GasRush.db()
+                    .from('deliveries')
+                    .select('*')
+                    .in('job_id', jobIds)
+                    .eq('status', 'pending')
+                    .order('timestamp', { ascending: false });
+                if (delErr) throw delErr;
+
+                pendingDeliveries = dels || [];
+                render();
+            } catch(e) {
+                console.error(e);
+                document.getElementById('deliveryList').innerHTML = '<div class="empty-msg">Failed to load deliveries</div>';
+            }
+        }
+
+        function render() {
+            const list = document.getElementById('deliveryList');
+            if (!pendingDeliveries.length) {
+                list.innerHTML = '<div class="empty-msg">No pending deliveries to review</div>';
+                document.getElementById('bulkBar').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('bulkBar').style.display = '';
+
+            let h = '<div class="table-wrapper"><table><thead><tr>';
+            h += '<th>Date</th><th>Job Site</th><th>Unit #</th><th>Driver</th>';
+            h += '<th>Diesel Gal</th><th>DEF Gal</th><th>Gen Hours</th>';
+            h += '<th>Diesel Rate</th><th>DEF Rate</th><th>Delivery Fee</th>';
+            h += '<th></th>';
+            h += '</tr></thead><tbody>';
+
+            pendingDeliveries.forEach((d, i) => {
+                const job = jobMap[d.job_id] || {};
+                const date = d.timestamp ? new Date(d.timestamp).toLocaleDateString() : '—';
+                h += `<tr id="row-${d.id}">
+                    <td>${date}</td>
+                    <td>${esc(job.job_site_name || '—')}</td>
+                    <td><strong>${esc(d.unit_number || '—')}</strong></td>
+                    <td>${esc(d.delivered_by_name || '—')}</td>
+                    <td>${d.gallons || 0}</td>
+                    <td>${d.def_gallons || 0}</td>
+                    <td>${d.unit_hours || '—'}</td>
+                    <td><input type="number" class="rate-input diesel-rate" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></td>
+                    <td><input type="number" class="rate-input def-rate" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></td>
+                    <td><input type="number" class="rate-input del-fee" data-id="${d.id}" step="0.01" min="0" placeholder="0.00"></td>
+                    <td><button class="confirm-btn" onclick="confirmOne('${d.id}')">Confirm</button></td>
+                </tr>`;
+            });
+
+            h += '</tbody></table></div>';
+            list.innerHTML = h;
+        }
+
+        function getRowRates(id) {
+            const dr = parseFloat(document.querySelector(`.diesel-rate[data-id="${id}"]`)?.value) || 0;
+            const defr = parseFloat(document.querySelector(`.def-rate[data-id="${id}"]`)?.value) || 0;
+            const fee = parseFloat(document.querySelector(`.del-fee[data-id="${id}"]`)?.value) || 0;
+            return { diesel_rate: dr, def_rate: defr, delivery_fee: fee };
+        }
+
+        async function confirmOne(id) {
+            const d = pendingDeliveries.find(x => x.id === id);
+            if (!d) return;
+
+            const rates = getRowRates(id);
+            const total = ((parseFloat(d.gallons) || 0) * rates.diesel_rate) +
+                          ((parseFloat(d.def_gallons) || 0) * rates.def_rate) +
+                          rates.delivery_fee;
+
+            const btn = document.querySelector(`#row-${id} .confirm-btn`);
+            if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+            try {
+                const { error } = await GasRush.db().from('deliveries').update({
+                    diesel_rate: rates.diesel_rate,
+                    def_rate: rates.def_rate,
+                    delivery_fee: rates.delivery_fee,
+                    total: Math.round(total * 100) / 100,
+                    status: 'confirmed',
+                    confirmed_by: currentUser.id,
+                    confirmed_at: new Date().toISOString()
+                }).eq('id', id);
+                if (error) throw error;
+
+                await logAudit(d.job_id, 'delivery_confirmed', {
+                    delivery_id: id, diesel_rate: rates.diesel_rate, def_rate: rates.def_rate,
+                    delivery_fee: rates.delivery_fee, total: Math.round(total * 100) / 100
+                });
+
+                pendingDeliveries = pendingDeliveries.filter(x => x.id !== id);
+                render();
+            } catch(e) {
+                alert('Failed to confirm: ' + (e.message || e));
+                if (btn) { btn.disabled = false; btn.textContent = 'Confirm'; }
+            }
+        }
+
+        async function confirmAll() {
+            const dr = parseFloat(document.getElementById('bulkDieselRate').value) || 0;
+            const defr = parseFloat(document.getElementById('bulkDefRate').value) || 0;
+            const fee = parseFloat(document.getElementById('bulkDeliveryFee').value) || 0;
+
+            if (!dr && !defr && !fee) {
+                alert('Please enter at least one rate in the bulk bar.');
+                return;
+            }
+
+            if (!confirm(`Confirm all ${pendingDeliveries.length} deliveries with Diesel: $${dr}/gal, DEF: $${defr}/gal, Fee: $${fee}?`)) return;
+
+            const toConfirm = [...pendingDeliveries];
+            let success = 0;
+            for (const d of toConfirm) {
+                const total = ((parseFloat(d.gallons) || 0) * dr) +
+                              ((parseFloat(d.def_gallons) || 0) * defr) + fee;
+                try {
+                    const { error } = await GasRush.db().from('deliveries').update({
+                        diesel_rate: dr, def_rate: defr, delivery_fee: fee,
+                        total: Math.round(total * 100) / 100,
+                        status: 'confirmed',
+                        confirmed_by: currentUser.id,
+                        confirmed_at: new Date().toISOString()
+                    }).eq('id', d.id);
+                    if (!error) {
+                        success++;
+                        await logAudit(d.job_id, 'delivery_confirmed', {
+                            delivery_id: d.id, diesel_rate: dr, def_rate: defr,
+                            delivery_fee: fee, total: Math.round(total * 100) / 100, bulk: true
+                        });
+                    }
+                } catch(e) { console.error('Failed:', d.id, e); }
+            }
+
+            alert(`Confirmed ${success} of ${toConfirm.length} deliveries.`);
+            pendingDeliveries = pendingDeliveries.filter(d => !toConfirm.find(t => t.id === d.id));
+            await loadPending();
+        }
+
+        async function logAudit(jobId, action, details) {
+            try {
+                await GasRush.db().from('audit_logs').insert({
+                    user_id: currentUser.id?.length === 36 ? currentUser.id : null,
+                    user_name: currentUser.name || currentUser.email,
+                    action, target_type: 'delivery', target_id: jobId, details
+                });
+            } catch(e) { console.warn('Audit log failed:', e); }
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    </script>
+</body>
+</html>

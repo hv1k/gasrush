@@ -154,9 +154,17 @@
         }
 
         function getFilteredDeliveries() {
+            const user = GasRush.getUser();
+            let filtered = siteDeliveries;
+            // Rental users only see confirmed deliveries
+            if (user && user.role === 'rental') {
+                filtered = filtered.filter(d => d.status === 'confirmed');
+            }
             const dateVal = document.getElementById('deliveryDateFilter')?.value;
-            if (!dateVal) return siteDeliveries;
-            return siteDeliveries.filter(d => d.timestamp && d.timestamp.startsWith(dateVal));
+            if (dateVal) {
+                filtered = filtered.filter(d => d.timestamp && d.timestamp.startsWith(dateVal));
+            }
+            return filtered;
         }
 
         function renderDeliveries() {
@@ -172,9 +180,16 @@
                 <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="toggleAllDeliveries()">Select All</button>
                 <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="exportSelected()">📥 Export Selected</button>
             </div>`;
-            h += '<div class="table-wrapper"><table><thead><tr><th style="width:32px"><input type="checkbox" id="selectAllCb" onchange="toggleAllDeliveries(this.checked)"></th><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th></tr></thead><tbody>';
+            const user = GasRush.getUser();
+            const showStatus = user && (user.role === 'vendor' || user.role === 'admin');
+            h += '<div class="table-wrapper"><table><thead><tr><th style="width:32px"><input type="checkbox" id="selectAllCb" onchange="toggleAllDeliveries(this.checked)"></th><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th><th>Diesel Rate</th><th>DEF Rate</th><th>Del. Fee</th><th>Total</th>';
+            if (showStatus) h += '<th>Status</th>';
+            h += '</tr></thead><tbody>';
             filtered.forEach((d, i) => {
                 const date = d.timestamp ? new Date(d.timestamp).toLocaleString() : '—';
+                const statusBadge = d.status === 'confirmed'
+                    ? '<span style="color:var(--success,#28a745);font-weight:600;font-size:12px">Confirmed</span>'
+                    : '<span style="color:var(--warning,#f0ad4e);font-weight:600;font-size:12px">Pending</span>';
                 h += `<tr>
                     <td><input type="checkbox" class="del-cb" data-idx="${i}" value="${d.id}"></td>
                     <td>${date}</td>
@@ -183,7 +198,12 @@
                     <td>${d.gallons || 0} gal</td>
                     <td>${d.def_gallons || 0} gal</td>
                     <td>${d.unit_hours || '—'}</td>
-                </tr>`;
+                    <td>${d.diesel_rate ? '$' + Number(d.diesel_rate).toFixed(2) : '—'}</td>
+                    <td>${d.def_rate ? '$' + Number(d.def_rate).toFixed(2) : '—'}</td>
+                    <td>${d.delivery_fee ? '$' + Number(d.delivery_fee).toFixed(2) : '—'}</td>
+                    <td>${d.total ? '$' + Number(d.total).toFixed(2) : '—'}</td>`;
+                if (showStatus) h += `<td>${statusBadge}</td>`;
+                h += `</tr>`;
             });
             h += '</tbody></table></div>';
             list.innerHTML = h;
@@ -239,7 +259,7 @@
             XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
 
             // Deliveries
-            const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Notes']];
+            const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Diesel Rate', 'DEF Rate', 'Delivery Fee', 'Total', 'Status', 'Notes']];
             exportDels.forEach(d => {
                 const dt = d.timestamp ? new Date(d.timestamp) : null;
                 delData.push([
@@ -250,11 +270,17 @@
                     parseFloat(d.gallons) || 0,
                     parseFloat(d.def_gallons) || 0,
                     d.unit_hours || '',
+                    d.diesel_rate ? Number(d.diesel_rate) : '',
+                    d.def_rate ? Number(d.def_rate) : '',
+                    d.delivery_fee ? Number(d.delivery_fee) : '',
+                    d.total ? Number(d.total) : '',
+                    d.status || '',
                     d.notes || ''
                 ]);
             });
+            const grandTotal = exportDels.reduce((s, d) => s + (parseFloat(d.total) || 0), 0);
             delData.push([]);
-            delData.push(['', '', '', 'TOTALS', totalDiesel, totalDef, '', '']);
+            delData.push(['', '', '', 'TOTALS', totalDiesel, totalDef, '', '', '', '', grandTotal || '', '', '']);
             const ws2 = XLSX.utils.aoa_to_sheet(delData);
             ws2['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
             XLSX.utils.book_append_sheet(wb, ws2, 'Deliveries');
