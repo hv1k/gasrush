@@ -60,6 +60,15 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card" style="margin-top:20px">
+                <div class="card-header">
+                    <h2 class="card-title">Recent Activity</h2>
+                </div>
+                <div id="activityContainer">
+                    <div class="empty-state"><h3>Loading...</h3></div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -104,10 +113,53 @@
                 document.getElementById('statWorkers').textContent = workers;
 
                 renderJobs(all.slice(0, 20));
+
+                // Load recent activity from audit_logs for this vendor's jobs
+                const jobIds = all.map(j => j.id);
+                if (jobIds.length > 0) {
+                    const { data: logs } = await GasRush.db()
+                        .from('audit_logs')
+                        .select('*')
+                        .eq('target_type', 'job')
+                        .in('target_id', jobIds)
+                        .order('created_at', { ascending: false })
+                        .limit(20);
+                    renderActivity(logs || []);
+                } else {
+                    renderActivity([]);
+                }
             } catch(e) {
                 console.error('Failed to load:', e);
                 renderJobs([]);
+                renderActivity([]);
             }
+        }
+
+        function renderActivity(logs) {
+            const c = document.getElementById('activityContainer');
+            if (!logs.length) {
+                c.innerHTML = '<div class="empty-state"><h3>No recent activity</h3></div>';
+                return;
+            }
+            let html = '<div style="padding:16px;display:flex;flex-direction:column;gap:10px">';
+            for (const log of logs) {
+                const dt = log.created_at ? new Date(log.created_at).toLocaleString() : '';
+                const name = log.user_name || 'Unknown';
+                const action = (log.action || '').replace(/_/g, ' ');
+                const detail = log.details ? formatDetail(log.details) : '';
+                html += `<div style="font-size:14px;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">
+                    <span style="color:var(--text-muted);font-size:12px">${dt}</span> — <strong>${esc(name)}</strong>: ${esc(action)}${detail ? ' <span style="color:var(--text-muted)">' + esc(detail) + '</span>' : ''}
+                </div>`;
+            }
+            html += '</div>';
+            c.innerHTML = html;
+        }
+
+        function formatDetail(details) {
+            if (typeof details === 'string') try { details = JSON.parse(details); } catch(e) { return details; }
+            if (details.old_status && details.new_status) return `${details.old_status} → ${details.new_status}`;
+            if (details.job_site) return details.job_site;
+            return '';
         }
 
         function renderJobs(jobs) {
