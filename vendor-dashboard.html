@@ -170,7 +170,7 @@
             }
 
             let html = '<div class="table-wrapper"><table><thead><tr>';
-            html += '<th>Date</th><th>Job</th><th>Location</th><th>Status</th><th>Gallons</th>';
+            html += '<th>Date</th><th>Job</th><th class="hide-mobile">Location</th><th>Status</th><th class="hide-mobile">Gallons</th>';
             html += '</tr></thead><tbody>';
 
             for (const job of jobs) {
@@ -180,7 +180,7 @@
                 const gal = job.billable_services?.fuelGallons || '—';
                 const status = job.status || 'pending';
                 const bc = status === 'completed' ? 'badge-success' : ['active','assigned'].includes(status) ? 'badge-primary' : 'badge-warning';
-                html += `<tr><td>${date}</td><td><strong>${esc(name)}</strong></td><td>${esc(loc)}</td><td><span class="badge ${bc}">${status}</span></td><td>${gal}</td></tr>`;
+                html += `<tr><td>${date}</td><td><strong>${esc(name)}</strong></td><td class="hide-mobile">${esc(loc)}</td><td><span class="badge ${bc}">${status}</span></td><td class="hide-mobile">${gal}</td></tr>`;
             }
             html += '</tbody></table></div>';
             container.innerHTML = html;

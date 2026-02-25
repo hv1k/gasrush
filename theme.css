@@ -593,12 +593,64 @@ tr:hover td {
     }
 
     .page-header {
-        flex-direction: column;
+        flex-direction: column !important;
+        align-items: flex-start !important;
         gap: 12px;
     }
 
-    table { font-size: 13px; }
-    th, td { padding: 8px 10px; }
+    .page-header .flex,
+    .page-header #headerActions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .page-header .btn {
+        flex: 1;
+        text-align: center;
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+
+    /* Job detail modal */
+    .job-detail {
+        grid-template-columns: 1fr !important;
+    }
+
+    .modal {
+        max-width: 95vw !important;
+        max-height: 90vh;
+        margin: 5vh auto;
+    }
+
+    /* Card header stacking */
+    .card-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start !important;
+    }
+
+    .card-header .flex { width: 100%; }
+    .card-header .form-input,
+    .card-header .form-select {
+        width: 100% !important;
+        flex: 1;
+    }
+
+    /* Work order tabs */
+    .wo-tab {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    /* Stat cards text */
+    .stat-card .stat-value,
+    .stats-grid .stat-value { font-size: 24px; }
+
+    table { font-size: 12px; }
+    th, td { padding: 6px 8px; }
+
+    /* Hide less important table columns on mobile */
+    .hide-mobile { display: none !important; }
 }
 
 @media (max-width: 480px) {

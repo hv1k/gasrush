@@ -370,15 +370,15 @@
                 }
             }
 
-            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>QTY</th><th>Unit #</th><th>Description</th><th>Deliveries</th><th>Total Diesel</th><th>Total DEF</th><th>Last Gen Hrs</th></tr></thead><tbody>' +
+            document.getElementById('equipList').innerHTML = '<div class="table-wrapper"><table><thead><tr><th>QTY</th><th>Unit #</th><th class="hide-mobile">Description</th><th>Deliveries</th><th>Diesel</th><th>DEF</th><th class="hide-mobile">Gen Hrs</th></tr></thead><tbody>' +
                 Object.values(unique).map(e => `<tr>
                     <td>${e.quantity || 1}</td>
                     <td><strong>${esc(e.equipment_number || '—')}</strong></td>
-                    <td>${esc(e.description || '—')}</td>
+                    <td class="hide-mobile">${esc(e.description || '—')}</td>
                     <td>${e.count}</td>
-                    <td>${e.totalDiesel ? e.totalDiesel.toLocaleString() + ' gal' : '—'}</td>
-                    <td>${e.totalDef ? e.totalDef.toLocaleString() + ' gal' : '—'}</td>
-                    <td>${e.lastHours || '—'}</td>
+                    <td>${e.totalDiesel ? e.totalDiesel.toLocaleString() : '—'}</td>
+                    <td>${e.totalDef ? e.totalDef.toLocaleString() : '—'}</td>
+                    <td class="hide-mobile">${e.lastHours || '—'}</td>
                 </tr>`).join('') + '</tbody></table></div>';
         }
 
