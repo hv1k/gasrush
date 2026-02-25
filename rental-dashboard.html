@@ -165,7 +165,7 @@
             }
 
             let html = '<div class="table-wrapper"><table><thead><tr>';
-            html += '<th>Date</th><th>Job</th><th>Location</th><th>Status</th><th>Gallons</th><th></th>';
+            html += '<th>Date</th><th>Job</th><th class="hide-mobile">Location</th><th>Status</th><th class="hide-mobile">Gallons</th><th></th>';
             html += '</tr></thead><tbody>';
 
             for (const job of orders) {
@@ -180,9 +180,9 @@
                 html += `<tr>
                     <td>${date}</td>
                     <td><strong>${escapeHtml(name)}</strong></td>
-                    <td>${escapeHtml(loc)}</td>
+                    <td class="hide-mobile">${escapeHtml(loc)}</td>
                     <td><span class="badge ${badgeClass}">${status}</span></td>
-                    <td>${gal}</td>
+                    <td class="hide-mobile">${gal}</td>
                     <td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="viewJob('${job.id}')">View</button></td>
                 </tr>`;
             }

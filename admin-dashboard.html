@@ -124,7 +124,7 @@
             }
 
             let html = '<div class="table-wrapper"><table><thead><tr>';
-            html += '<th>Date</th><th>Job</th><th>Status</th><th>Gallons</th><th>Created By</th>';
+            html += '<th>Date</th><th>Job</th><th>Status</th><th class="hide-mobile">Gallons</th><th class="hide-mobile">Created By</th>';
             html += '</tr></thead><tbody>';
 
             for (const job of jobs) {
@@ -135,8 +135,8 @@
                     <td>${date}</td>
                     <td><strong>${esc(job.job_site_name || 'Untitled')}</strong></td>
                     <td><span class="badge ${bc}">${status}</span></td>
-                    <td>${job.billable_services?.fuelGallons || '—'}</td>
-                    <td>${esc(job.created_by || '—')}</td>
+                    <td class="hide-mobile">${job.billable_services?.fuelGallons || '—'}</td>
+                    <td class="hide-mobile">${esc(job.created_by || '—')}</td>
                 </tr>`;
             }
             html += '</tbody></table></div>';

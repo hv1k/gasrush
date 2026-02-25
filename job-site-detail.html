@@ -182,7 +182,7 @@
             </div>`;
             const user = GasRush.getUser();
             const showStatus = user && (user.role === 'vendor' || user.role === 'admin');
-            h += '<div class="table-wrapper"><table><thead><tr><th style="width:32px"><input type="checkbox" id="selectAllCb" onchange="toggleAllDeliveries(this.checked)"></th><th>Date</th><th>Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th>Gen Hours</th><th>Diesel Rate</th><th>DEF Rate</th><th>Del. Fee</th><th>Total</th>';
+            h += '<div class="table-wrapper"><table><thead><tr><th style="width:32px"><input type="checkbox" id="selectAllCb" onchange="toggleAllDeliveries(this.checked)"></th><th>Date</th><th class="hide-mobile">Driver</th><th>Unit #</th><th>Diesel</th><th>DEF</th><th class="hide-mobile">Gen Hours</th><th class="hide-mobile">Diesel Rate</th><th class="hide-mobile">DEF Rate</th><th class="hide-mobile">Del. Fee</th><th>Total</th>';
             if (showStatus) h += '<th>Status</th>';
             h += '</tr></thead><tbody>';
             filtered.forEach((d, i) => {
@@ -193,14 +193,14 @@
                 h += `<tr>
                     <td><input type="checkbox" class="del-cb" data-idx="${i}" value="${d.id}"></td>
                     <td>${date}</td>
-                    <td>${esc(d.delivered_by_name || '—')}</td>
+                    <td class="hide-mobile">${esc(d.delivered_by_name || '—')}</td>
                     <td><strong>${esc(d.unit_number || '—')}</strong></td>
                     <td>${d.gallons || 0} gal</td>
                     <td>${d.def_gallons || 0} gal</td>
-                    <td>${d.unit_hours || '—'}</td>
-                    <td>${d.diesel_rate ? '$' + Number(d.diesel_rate).toFixed(2) : '—'}</td>
-                    <td>${d.def_rate ? '$' + Number(d.def_rate).toFixed(2) : '—'}</td>
-                    <td>${d.delivery_fee ? '$' + Number(d.delivery_fee).toFixed(2) : '—'}</td>
+                    <td class="hide-mobile">${d.unit_hours || '—'}</td>
+                    <td class="hide-mobile">${d.diesel_rate ? '$' + Number(d.diesel_rate).toFixed(2) : '—'}</td>
+                    <td class="hide-mobile">${d.def_rate ? '$' + Number(d.def_rate).toFixed(2) : '—'}</td>
+                    <td class="hide-mobile">${d.delivery_fee ? '$' + Number(d.delivery_fee).toFixed(2) : '—'}</td>
                     <td>${d.total ? '$' + Number(d.total).toFixed(2) : '—'}</td>`;
                 if (showStatus) h += `<td>${statusBadge}</td>`;
                 h += `</tr>`;

@@ -618,8 +618,9 @@ tr:hover td {
 
     .modal {
         max-width: 95vw !important;
-        max-height: 90vh;
+        max-height: 85vh;
         margin: 5vh auto;
+        overflow-y: auto;
     }
 
     /* Card header stacking */
@@ -634,12 +635,6 @@ tr:hover td {
     .card-header .form-select {
         width: 100% !important;
         flex: 1;
-    }
-
-    /* Work order tabs */
-    .wo-tab {
-        padding: 10px 12px;
-        font-size: 13px;
     }
 
     /* Stat cards text */
