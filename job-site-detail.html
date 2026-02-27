@@ -417,21 +417,21 @@
                     const dt = d.timestamp ? new Date(d.timestamp) : null;
                     const diesel = parseFloat(d.gallons) || 0;
                     const def = parseFloat(d.def_gallons) || 0;
+                    const dieselRate = d.diesel_rate ? Number(d.diesel_rate) : '';
+                    const defRate = d.def_rate ? Number(d.def_rate) : '';
+                    const deliveryFee = d.delivery_fee ? Number(d.delivery_fee) : '';
+                    const total = d.total ? Number(d.total) : '';
                     const row = [
-                        i === 0 ? (first.customer_name || '') : '',  // Customer name on first row per unit
-                        '',  // Invoice number (fill manually or from invoices)
+                        i === 0 ? (first.customer_name || '') : '',
+                        '',  // Invoice number
                         dt ? dt.toLocaleDateString() : '',
-                        '',  // RD99 diesel rate (fill manually)
+                        dieselRate,
                         diesel || '',
-                        '',  // DEF rate (fill manually)
+                        defRate,
                         def || '',
-                        i === 0 ? (d.delivered_by_name || '') : '',  // Driver
-                        ''   // Total (formula or manual)
+                        deliveryFee,
+                        total
                     ];
-                    // Fill address/unit/PO on first row
-                    if (i === 0) {
-                        row[0] = first.customer_name || '';
-                    }
                     rows.push(row);
                 }
                 // After each unit group, add a blank row
