@@ -226,67 +226,8 @@
             const filtered = getFilteredDeliveries();
             const selected = [...document.querySelectorAll('.del-cb:checked')].map(c => c.value);
             if (!selected.length) { alert('Select at least one delivery to export.'); return; }
-
             const exportDels = filtered.filter(d => selected.includes(d.id));
-            const totalDiesel = exportDels.reduce((s, d) => s + (parseFloat(d.gallons) || 0), 0);
-            const totalDef = exportDels.reduce((s, d) => s + (parseFloat(d.def_gallons) || 0), 0);
-            const first = allJobs[0] || {};
-            const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
-
-            const wb = XLSX.utils.book_new();
-
-            // Summary
-            const summary = [
-                ['', '', siteName],
-                [],
-                ['Site Information'],
-                ['Address', addr],
-                ['Customer', first.customer_name || ''],
-                ['Contact', first.contact_name || ''],
-                ['Phone', first.contact_phone || ''],
-                ['Contract #', first.contract_number || ''],
-                ['PO #', first.po_number || ''],
-                [],
-                ['Export Summary'],
-                ['Deliveries Selected', exportDels.length],
-                ['Total Diesel (gal)', totalDiesel],
-                ['Total DEF (gal)', totalDef],
-                [],
-                ['Report Generated', new Date().toLocaleString()],
-            ];
-            const ws1 = XLSX.utils.aoa_to_sheet(summary);
-            ws1['!cols'] = [{ wch: 22 }, { wch: 45 }, { wch: 30 }];
-            XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
-
-            // Deliveries
-            const delData = [['Date', 'Time', 'Driver', 'Unit #', 'Diesel (gal)', 'DEF (gal)', 'Gen Hours', 'Diesel Rate', 'DEF Rate', 'Delivery Fee', 'Total', 'Status', 'Notes']];
-            exportDels.forEach(d => {
-                const dt = d.timestamp ? new Date(d.timestamp) : null;
-                delData.push([
-                    dt ? dt.toLocaleDateString() : '',
-                    dt ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-                    d.delivered_by_name || '',
-                    d.unit_number || '',
-                    parseFloat(d.gallons) || 0,
-                    parseFloat(d.def_gallons) || 0,
-                    d.unit_hours || '',
-                    d.diesel_rate ? Number(d.diesel_rate) : '',
-                    d.def_rate ? Number(d.def_rate) : '',
-                    d.delivery_fee ? Number(d.delivery_fee) : '',
-                    d.total ? Number(d.total) : '',
-                    d.status || '',
-                    d.notes || ''
-                ]);
-            });
-            const grandTotal = exportDels.reduce((s, d) => s + (parseFloat(d.total) || 0), 0);
-            delData.push([]);
-            delData.push(['', '', '', 'TOTALS', totalDiesel, totalDef, '', '', '', '', grandTotal || '', '', '']);
-            const ws2 = XLSX.utils.aoa_to_sheet(delData);
-            ws2['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
-            XLSX.utils.book_append_sheet(wb, ws2, 'Deliveries');
-
-            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_selected_deliveries.xlsx';
-            XLSX.writeFile(wb, filename);
+            buildInvoiceExport(exportDels, '_selected');
         }
 
         function renderJobDetails() {
@@ -383,83 +324,82 @@
         }
 
         function exportExcel() {
+            buildInvoiceExport(getFilteredDeliveries(), '');
+        }
+
+        function buildInvoiceExport(deliveries, suffix) {
             const wb = XLSX.utils.book_new();
             const first = allJobs[0] || {};
             const addr = [first.address_street, first.address_city, first.address_state, first.address_zip].filter(Boolean).join(', ');
-            const exportDeliveries = getFilteredDeliveries();
 
-            // Build rows: Header info rows 1-4, then column headers, then delivery data
+            // Group by unit
+            const unitGroups = {};
+            for (const d of deliveries) {
+                const unit = d.unit_number || 'Unknown';
+                if (!unitGroups[unit]) unitGroups[unit] = [];
+                unitGroups[unit].push(d);
+            }
+            const unitList = Object.keys(unitGroups).join(', ');
+
+            // Totals
+            let grandDiesel = 0, grandDef = 0, grandTotal = 0;
+            deliveries.forEach(d => {
+                grandDiesel += parseFloat(d.gallons) || 0;
+                grandDef += parseFloat(d.def_gallons) || 0;
+                grandTotal += parseFloat(d.total) || 0;
+            });
+
             const rows = [];
 
-            // Row 1: CUSTOMER NAME header + column headers
+            // Row 1: Column headers
             rows.push(['CUSTOMER NAME', 'INVOICE NUMBER', 'DATE', 'RD99 DIESEL RATE', 'RD99 DIESEL GALLONS', 'DEF RATE', 'DEF GALLONS', 'DELIVERY', 'TOTAL']);
-            // Row 2: ADDRESS
-            rows.push(['ADDRESS']);
-            // Row 3: UNIT #
-            rows.push(['UNIT #']);
+            // Row 2: Address
+            rows.push([addr]);
+            // Row 3: Unit #
+            rows.push([unitList]);
             // Row 4: PO#
-            rows.push(['PO#']);
-
-            // Blank separator row
+            rows.push([first.po_number || '']);
+            // Row 5: blank
             rows.push([]);
 
-            // One row per delivery, grouped by unit
-            const unitDeliveries = {};
-            for (const d of exportDeliveries) {
-                const unit = d.unit_number || 'Unknown';
-                if (!unitDeliveries[unit]) unitDeliveries[unit] = [];
-                unitDeliveries[unit].push(d);
-            }
-
-            for (const [unit, dels] of Object.entries(unitDeliveries)) {
+            // Data rows grouped by unit
+            for (const [unit, dels] of Object.entries(unitGroups)) {
                 for (let i = 0; i < dels.length; i++) {
                     const d = dels[i];
                     const dt = d.timestamp ? new Date(d.timestamp) : null;
-                    const diesel = parseFloat(d.gallons) || 0;
-                    const def = parseFloat(d.def_gallons) || 0;
-                    const dieselRate = d.diesel_rate ? Number(d.diesel_rate) : '';
-                    const defRate = d.def_rate ? Number(d.def_rate) : '';
-                    const deliveryFee = d.delivery_fee ? Number(d.delivery_fee) : '';
-                    const total = d.total ? Number(d.total) : '';
-                    const row = [
+                    rows.push([
                         i === 0 ? (first.customer_name || '') : '',
-                        '',  // Invoice number
+                        '',
                         dt ? dt.toLocaleDateString() : '',
-                        dieselRate,
-                        diesel || '',
-                        defRate,
-                        def || '',
-                        deliveryFee,
-                        total
-                    ];
-                    rows.push(row);
+                        d.diesel_rate ? Number(d.diesel_rate) : '',
+                        parseFloat(d.gallons) || '',
+                        d.def_rate ? Number(d.def_rate) : '',
+                        parseFloat(d.def_gallons) || '',
+                        d.delivery_fee ? Number(d.delivery_fee) : '',
+                        d.total ? Number(d.total) : ''
+                    ]);
                 }
-                // After each unit group, add a blank row
                 rows.push([]);
             }
 
-            // Now fill in rows 2-4 column A values with actual data
-            if (rows.length > 1) rows[1][0] = addr;
-            // Fill unit # for each unit group
-            let unitList = Object.keys(unitDeliveries).join(', ');
-            if (rows.length > 2) rows[2][0] = unitList;
-            if (rows.length > 3) rows[3][0] = first.po_number || '';
+            // Totals row
+            rows.push(['', '', 'TOTALS', '', grandDiesel, '', grandDef, '', grandTotal ? Math.round(grandTotal * 100) / 100 : '']);
 
             const ws = XLSX.utils.aoa_to_sheet(rows);
             ws['!cols'] = [
-                { wch: 28 },  // A: Customer Name
-                { wch: 18 },  // B: Invoice Number
-                { wch: 12 },  // C: Date
-                { wch: 18 },  // D: RD99 Diesel Rate
+                { wch: 32 },  // A: Customer Name / Address
+                { wch: 20 },  // B: Invoice Number
+                { wch: 14 },  // C: Date
+                { wch: 20 },  // D: RD99 Diesel Rate
                 { wch: 22 },  // E: RD99 Diesel Gallons
-                { wch: 12 },  // F: DEF Rate
-                { wch: 14 },  // G: DEF Gallons
-                { wch: 14 },  // H: Delivery
-                { wch: 10 },  // I: Total
+                { wch: 14 },  // F: DEF Rate
+                { wch: 16 },  // G: DEF Gallons
+                { wch: 14 },  // H: Delivery Fee
+                { wch: 12 },  // I: Total
             ];
             XLSX.utils.book_append_sheet(wb, ws, 'Invoice');
 
-            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + '_invoice.xlsx';
+            const filename = siteName.replace(/[^a-zA-Z0-9]/g, '_') + suffix + '_invoice.xlsx';
             XLSX.writeFile(wb, filename);
         }
 
