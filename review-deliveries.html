@@ -203,9 +203,33 @@
                 }).eq('id', id);
                 if (error) throw error;
 
+                // Create invoice with rates
+                const job = jobMap[d.job_id] || {};
+                const roundedTotal = Math.round(total * 100) / 100;
+                await GasRush.db().from('invoices').insert({
+                    job_id: d.job_id,
+                    worker_id: d.delivered_by || null,
+                    worker_name: d.delivered_by_name || '',
+                    invoice_date: new Date().toISOString().split('T')[0],
+                    invoice_time: new Date().toTimeString().split(' ')[0],
+                    total_diesel: parseFloat(d.gallons) || 0,
+                    total_def: parseFloat(d.def_gallons) || 0,
+                    units_data: JSON.stringify([{
+                        unit_number: d.unit_number,
+                        diesel: parseFloat(d.gallons) || 0,
+                        def: parseFloat(d.def_gallons) || 0,
+                        gen_hours: d.unit_hours || null,
+                        diesel_rate: rates.diesel_rate,
+                        def_rate: rates.def_rate,
+                        delivery_fee: rates.delivery_fee,
+                        total: roundedTotal
+                    }]),
+                    notes: `Confirmed by ${currentUser.name}. Site: ${job.job_site_name || ''}`
+                });
+
                 await logAudit(d.job_id, 'delivery_confirmed', {
                     delivery_id: id, diesel_rate: rates.diesel_rate, def_rate: rates.def_rate,
-                    delivery_fee: rates.delivery_fee, total: Math.round(total * 100) / 100
+                    delivery_fee: rates.delivery_fee, total: roundedTotal
                 });
 
                 pendingDeliveries = pendingDeliveries.filter(x => x.id !== id);
