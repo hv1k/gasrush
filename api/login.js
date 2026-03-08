@@ -31,8 +31,18 @@ export default async function handler(req, res) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        // Check password
-        const valid = await bcrypt.compare(password, user.password);
+        // Check password (supports bcrypt hash or plaintext migration)
+        let valid = false;
+        if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+            valid = await bcrypt.compare(password, user.password);
+        } else {
+            // Plaintext password — check and migrate to bcrypt
+            valid = (password === user.password);
+            if (valid) {
+                const hash = await bcrypt.hash(password, 10);
+                await supabase.from('users').update({ password: hash }).eq('id', user.id);
+            }
+        }
         if (!valid) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
