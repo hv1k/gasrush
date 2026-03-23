@@ -436,6 +436,7 @@
         }
 
         // ── Scan Logic ──
+        let scannedImageBase64 = null;
         const scanZone = document.getElementById('scanZone');
         scanZone.addEventListener('dragover', (e) => { e.preventDefault(); scanZone.classList.add('dragover'); });
         scanZone.addEventListener('dragleave', () => scanZone.classList.remove('dragover'));
@@ -458,6 +459,7 @@
 
             try {
                 const base64 = await fileToBase64(file);
+                scannedImageBase64 = base64;
                 const resp = await fetch('/api/scan-document', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -610,6 +612,19 @@
                     }));
                     const { error: eqErr } = await GasRush.db().from('equipment').insert(rows);
                     if (eqErr) console.warn('Equipment insert failed:', eqErr);
+                }
+
+                // Upload scanned document photo if exists
+                if (inserted?.id && scannedImageBase64) {
+                    try {
+                        await fetch('/api/upload-document', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: scannedImageBase64, jobId: inserted.id })
+                        });
+                    } catch(uploadErr) {
+                        console.warn('Document upload failed:', uploadErr);
+                    }
                 }
 
                 window.location.href = 'work-orders.html';
